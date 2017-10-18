@@ -1,0 +1,27 @@
+{
+  "name": "spock",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ix5231/spock.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ix5231/spock/issues"
+  },
+  "homepage": "https://github.com/ix5231/spock#readme",
+  "devDependencies": {
+    "typescript": "^2.5.3"
+  },
+  "dependencies": {
+    "@types/express": "^4.0.37",
+    "@types/node": "^8.0.44",
+    "express": "^4.16.2"
+  }
+}
