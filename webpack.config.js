@@ -17,7 +17,7 @@ module.exports = {
     entry: {
         app: [
             //'babel-polyfill',
-            path.resolve(__dirname, 'public/main.ts')
+            path.resolve(__dirname, 'src/main.ts')
         ],
         vendor: ['pixi', 'p2', 'phaser-ce'/*, 'webfontloader'*/]
     },
@@ -34,7 +34,7 @@ module.exports = {
         new webpack.optimize.CommonsChunkPlugin({ name: 'vendor'/* chunkName= */, filename: 'vendor.bundle.js'/* filename= */ }),
         new HtmlWebpackPlugin({
             filename: '../index.html',
-            template: './public/index.html',
+            template: './src/index.html',
             chunks: ['vendor', 'app'],
             chunksSortMode: 'manual',
             minify: {
@@ -49,13 +49,6 @@ module.exports = {
             },
             hash: false
         })
-        /*new BrowserSyncPlugin({
-            host: process.env.IP || 'localhost',
-            port: process.env.PORT || 3000,
-            server: {
-                baseDir: ['./', './build']
-            }
-        })*/
     ],
     module: {
         rules: [
