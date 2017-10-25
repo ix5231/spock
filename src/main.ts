@@ -1,6 +1,17 @@
+import { ENABLE_DISABLE_REGEX } from 'tslint/lib';
 import * as Phaser from 'phaser-ce';
 
 namespace spock {
+    class Player {
+        public sprite: Phaser.Sprite
+        public score: number
+
+        constructor(sprite: Phaser.Sprite) {
+            this.sprite = sprite
+            this.score = 0
+        }
+    }
+
     const KEYCODE = {
         a: 65,
         two: 98,
@@ -19,21 +30,18 @@ namespace spock {
         game.load.spritesheet('baddie', 'assets/baddie.png', 32, 32);
     }
 
-    var player;
-    var player2;
+    let player: Player;
+    let player2: Player;
 
     var platforms;
     var cursors;
     var a, two, four, six, eight;
 
     var stars;
-    var score = 0;
-    var score2 = 0;
     var scoreText;
     var scoreText2;
 
     function create() {
-
         //  We're going to be using physics, so enable the Arcade Physics system
         game.physics.startSystem(Phaser.Physics.ARCADE);
 
@@ -63,8 +71,8 @@ namespace spock {
         ledge.body.immovable = true;
 
         // The player and its settings
-        player = game.add.sprite(32, game.world.height - 150, 'dude');
-        player2 = game.add.sprite(700, game.world.height - 150, 'baddie');
+        player = new Player(game.add.sprite(32, game.world.height - 150, 'dude'));
+        player2 = new Player(game.add.sprite(700, game.world.height - 150, 'baddie'));
 
 
         //  We need to enable physics on the player
@@ -73,19 +81,19 @@ namespace spock {
 
 
         //  Player physics properties. Give the little guy a slight bounce.
-        player.body.bounce.y = 0;
-        player.body.gravity.y = 300;
-        player.body.collideWorldBounds = true;
+        player.sprite.body.bounce.y = 0;
+        player.sprite.body.gravity.y = 300;
+        player.sprite.body.collideWorldBounds = true;
 
-        player2.body.bounce.y = 0;
-        player2.body.gravity.y = 300;
-        player2.body.collideWorldBounds = true;
+        player2.sprite.body.bounce.y = 0;
+        player2.sprite.body.gravity.y = 300;
+        player2.sprite.body.collideWorldBounds = true;
 
         //  Our two animations, walking left and right.
-        player.animations.add('left', [0, 1, 2, 3], 10, true);
-        player.animations.add('right', [5, 6, 7, 8], 10, true);
-        player2.animations.add('left', [0, 1], 10, true);
-        player2.animations.add('right', [2, 3], 10, true);
+        player.sprite.animations.add('left', [0, 1, 2, 3], 10, true);
+        player.sprite.animations.add('right', [5, 6, 7, 8], 10, true);
+        player2.sprite.animations.add('left', [0, 1], 10, true);
+        player2.sprite.animations.add('right', [2, 3], 10, true);
 
         //  Finally some stars to collect
         stars = game.add.group();
@@ -132,64 +140,64 @@ namespace spock {
         game.physics.arcade.overlap(player2, stars, collectStar2, null, this);
 
         //  Reset the players velocity (movement)
-        player.body.velocity.x = 0;
-        player2.body.velocity.x = 0;
+        player.sprite.body.velocity.x = 0;
+        player2.sprite.body.velocity.x = 0;
 
         if (cursors.left.isDown) {
             //  Move to the left
-            player.body.velocity.x = -150;
+            player.sprite.body.velocity.x = -150;
 
-            player.animations.play('left');
+            player.sprite.animations.play('left');
         }
         else if (cursors.right.isDown) {
             //  Move to the right
-            player.body.velocity.x = 150;
+            player.sprite.body.velocity.x = 150;
 
-            player.animations.play('right');
+            player.sprite.animations.play('right');
         }
         else {
             //  Stand still
-            player.animations.stop();
+            player.sprite.animations.stop();
 
-            player.frame = 4;
+            player.sprite.frame = 4;
         }
 
         //  Allow the player to jump if they are touching the ground.
-        if (cursors.up.isDown && player.body.touching.down) {
-            player.body.velocity.y = -350;
+        if (cursors.up.isDown && player.sprite.body.touching.down) {
+            player.sprite.body.velocity.y = -350;
         }
 
         if (cursors.down.isDown) {
-            player.body.velocity.y = 1000;
+            player.sprite.body.velocity.y = 1000;
         }
 
 
         if (four.isDown) {
             //  Move to the left
-            player2.body.velocity.x = -150;
+            player2.sprite.body.velocity.x = -150;
 
-            player2.animations.play('left');
+            player2.sprite.animations.play('left');
         }
         else if (six.isDown) {
             //  Move to the right
-            player2.body.velocity.x = 150;
+            player2.sprite.body.velocity.x = 150;
 
-            player2.animations.play('right');
+            player2.sprite.animations.play('right');
         }
         else {
             //  Stand still
-            player2.animations.stop();
+            player2.sprite.animations.stop();
 
-            player2.frame = 1;
+            player2.sprite.frame = 1;
         }
 
         //  Allow the player to jump if they are touching the ground.
-        if (eight.isDown && player2.body.touching.down) {
-            player2.body.velocity.y = -350;
+        if (eight.isDown && player2.sprite.body.touching.down) {
+            player2.sprite.body.velocity.y = -350;
         }
 
         if (two.isDown) {
-            player2.body.velocity.y = 1000;
+            player2.sprite.body.velocity.y = 1000;
         }
 
 
@@ -201,8 +209,8 @@ namespace spock {
         star.kill();
 
         //  Add and update the score
-        score += 10;
-        scoreText.text = 'Score: ' + score;
+        player.score += 10;
+        scoreText.text = 'Score: ' + player.score;
 
     }
 
@@ -212,8 +220,8 @@ namespace spock {
         star.kill();
 
         //  Add and update the score
-        score2 += 10;
-        scoreText2.text = 'Score: ' + score2;
+        player2.score += 10;
+        scoreText2.text = 'Score: ' + player2.score;
 
     }
 }
