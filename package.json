@@ -21,6 +21,7 @@
   "devDependencies": {
     "@types/express": "^4.0.38",
     "@types/node": "^8.0.47",
+    "@types/socket.io": "^1.4.31",
     "expose-loader": "^0.7.3",
     "express": "^4.16.2",
     "html-webpack-plugin": "^2.30.1",
