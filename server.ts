@@ -11,11 +11,7 @@ class Server {
 
     constructor(port?: number) {
         this.app = express()
-        if (port) {
-            this.port = port
-        } else {
-            this.port = parseInt(process.env.PORT) || 3000
-        }
+        this.port = parseInt(process.env.PORT) || 3000
         this.server = Http.createServer(this.app)
         this.io = socketIo(this.server)
 
@@ -33,3 +29,5 @@ class Server {
         this.io.on('connect', (_) => { })
     }
 }
+
+new Server().listen();

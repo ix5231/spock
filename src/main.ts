@@ -9,6 +9,23 @@ namespace spock {
         constructor(sprite: Phaser.Sprite) {
             this.sprite = sprite
             this.score = 0
+
+            game.physics.arcade.enable(this.sprite);
+
+            this.sprite.body.bounce.y = 0
+            this.sprite.body.gravity.y = 300
+            this.sprite.body.collideWorldBounds = true
+        }
+
+        addAnimation(name: string, frame: Array<number>, num: number, loop: boolean) {
+            this.sprite.animations.add(name, frame, num, loop);
+        }
+
+        collectStar(star) {
+            star.kill();
+
+            this.score += 10;
+            scoreText2.text = 'P2.score: ' + this.score;
         }
     }
 
@@ -67,22 +84,10 @@ namespace spock {
         player = new Player(game.add.sprite(32, game.world.height - 150, 'dude'));
         player2 = new Player(game.add.sprite(700, game.world.height - 150, 'baddie'));
 
-        game.physics.arcade.enable(player.sprite);
-        game.physics.arcade.enable(player2.sprite);
-
-        // プレイヤー配置
-        player.sprite.body.bounce.y = 0;
-        player.sprite.body.gravity.y = 300;
-        player.sprite.body.collideWorldBounds = true;
-
-        player2.sprite.body.bounce.y = 0;
-        player2.sprite.body.gravity.y = 300;
-        player2.sprite.body.collideWorldBounds = true;
-
-        player.sprite.animations.add('left', [0, 1, 2, 3], 10, true);
-        player.sprite.animations.add('right', [5, 6, 7, 8], 10, true);
-        player2.sprite.animations.add('left', [0, 1], 10, true);
-        player2.sprite.animations.add('right', [2, 3], 10, true);
+        player.addAnimation('left', [0, 1, 2, 3], 10, true);
+        player.addAnimation('right', [5, 6, 7, 8], 10, true);
+        player2.addAnimation('left', [0, 1], 10, true);
+        player2.addAnimation('right', [2, 3], 10, true);
 
         // 星追加
         stars = game.add.group();
