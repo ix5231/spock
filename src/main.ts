@@ -45,6 +45,7 @@ namespace spock {
         game.load.image('star', 'assets/star.png');
         game.load.spritesheet('dude', 'assets/dude.png', 32, 48);
         game.load.spritesheet('baddie', 'assets/baddie.png', 32, 32);
+        game.load.image('diamond', 'assets/diamond.png');
     }
 
     let player: Player;
@@ -56,6 +57,7 @@ namespace spock {
     let a, two, four, six, eight;
 
     let stars;
+    let diamonds
     let scoreText;
     let scoreText2;
 
@@ -92,6 +94,8 @@ namespace spock {
         // 星追加
         stars = game.add.group();
         stars.enableBody = true;
+        diamonds = game.add.group();
+        diamonds.enableBody = true;
 
         for (var i = 0; i < 12; i++) {
             var star = stars.create(i * 70, 0, 'star');
@@ -148,6 +152,19 @@ namespace spock {
         if (cursors.down.isDown) {
             player.sprite.body.velocity.y = 1000;
         }
+
+        if(a.isUp)
+    {
+        var i = 0;
+    }else if(a.isDown)
+    {
+        if(i == 0)
+        {
+        var diamond = diamonds.create(player.sprite.x, player.sprite.y, 'diamond');
+        diamond.body.velocity.x = 300;
+        i = 1;
+        }
+    }
 
 
         if (four.isDown) {
