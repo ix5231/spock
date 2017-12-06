@@ -2,7 +2,6 @@ import * as path from "path"
 import * as Http from "http"
 import * as express from "express"
 import * as socketIo from "socket.io"
-import * as cors from "cors"
 
 class Server {
     private app: any
@@ -15,8 +14,9 @@ class Server {
         this.port = parseInt(process.env.PORT) || 3000
         this.server = Http.createServer(this.app)
         this.io = socketIo(this.server)
+    }
 
-        this.app.use(cors());
+    route() {
         this.app.use(express.static('dist'))
         this.app.use('/dist', express.static(path.join(__dirname, 'dist')))
         this.app.use('/assets', express.static(path.join(__dirname, 'assets')))
@@ -27,9 +27,17 @@ class Server {
 
     listen() {
         this.server.listen(this.port, () => console.log('Listening on ' + this.port))
+    }
 
-        this.io.on('connect', (_) => { })
+    socketOpen() {
+        this.io.on('connection', (socket) => {
+            console.log('Hello')
+            //socket.on('hello', () => console.log('Hello'))
+        })
     }
 }
 
-new Server().listen();
+let server = new Server()
+server.route()
+server.socketOpen()
+server.listen()

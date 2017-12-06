@@ -58,7 +58,7 @@ namespace spock {
 
     let stars;
     let diamonds
-    let scoreText;
+        let scoreText;
     let scoreText2;
 
     function create() {
@@ -153,18 +153,15 @@ namespace spock {
             player.sprite.body.velocity.y = 1000;
         }
 
-        if(a.isUp)
-    {
-        var i = 0;
-    }else if(a.isDown)
-    {
-        if(i == 0)
-        {
-        var diamond = diamonds.create(player.sprite.x, player.sprite.y, 'diamond');
-        diamond.body.velocity.x = 300;
-        i = 1;
+        if(a.isUp) {
+            var i = 0;
+        } else if(a.isDown) {
+            if(i == 0) {
+                var diamond = diamonds.create(player.sprite.x, player.sprite.y, 'diamond');
+                diamond.body.velocity.x = 300;
+                i = 1;
+            }
         }
-    }
 
 
         if (four.isDown) {
@@ -190,8 +187,6 @@ namespace spock {
         if (two.isDown) {
             player2.sprite.body.velocity.y = 1000;
         }
-
-
     }
 
     function collectStar(_, star) {
@@ -208,6 +203,5 @@ namespace spock {
         scoreText2.text = 'P2.score: ' + player2.score;
     }
 
-    const socket = io('http://localhost')
-    socket.on('connect', () => console.log('Hello'))
+    let socket = io.connect()
 }
