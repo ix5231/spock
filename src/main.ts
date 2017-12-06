@@ -1,5 +1,6 @@
 import { ENABLE_DISABLE_REGEX } from 'tslint/lib';
 import * as Phaser from 'phaser-ce';
+import * as io from 'socket.io-client'
 
 namespace spock {
     class Player {
@@ -31,8 +32,7 @@ namespace spock {
 
     const KEYCODE = {
         a: 65,
-        two: 98,
-        four: 100,
+        two: 98, four: 100,
         six: 102,
         eight: 104,
     };
@@ -207,4 +207,7 @@ namespace spock {
         player2.score += 10;
         scoreText2.text = 'P2.score: ' + player2.score;
     }
+
+    const socket = io('http://localhost')
+    socket.on('connect', () => console.log('Hello'))
 }
