@@ -155,7 +155,7 @@ namespace spock {
 
         if(a.isUp) {
             var i = 0;
-        } else if(a.isDown) {
+        } else if (a.isDown) {
             if(i == 0) {
                 var diamond = diamonds.create(player.sprite.x, player.sprite.y, 'diamond');
                 diamond.body.velocity.x = 300;
@@ -204,4 +204,7 @@ namespace spock {
     }
 
     let socket = io.connect()
+    socket.emit('matching')
+
+    socket.on('playing', () => console.log('Start'))
 }
