@@ -22,12 +22,12 @@ namespace spock {
             this.sprite.animations.add(name, frame, num, loop);
         }
 
-        collectStar(star) {
+        /*collectStar(star) {
             star.kill();
 
             this.score += 10;
             scoreText2.text = 'P2.score: ' + this.score;
-        }
+        }*/
     }
 
     const KEYCODE = {
@@ -57,9 +57,10 @@ namespace spock {
     let a, two, four, six, eight;
 
     let stars;
-    let diamonds
+    let diamonds;
     let scoreText;
     let scoreText2;
+    let setText;
 
     function create() {
         // 物理
@@ -103,10 +104,13 @@ namespace spock {
             star.body.bounce.y = 0.7 + Math.random() * 0.2;
         }
 
+        game.time.events.repeat(Phaser.Timer.SECOND * 2, 10, createstar, this);
+
         // スコア
         scoreText = game.add.text(16, 16, 'P1.score: 0', { fontSize: 32, fill: '#000' });
         scoreText2 = game.add.text(600, 16, 'P2.score: 0', { fontSize: 32, fill: '#000' });
-
+        setText = game.add.text(300, 16, 'Counter: 0', { fontSize: 32, fill: '#000' });
+        
         // 操作
         cursors = game.input.keyboard.createCursorKeys();
         a = game.input.keyboard.addKey(KEYCODE.a);
@@ -114,6 +118,8 @@ namespace spock {
         four = game.input.keyboard.addKey(KEYCODE.four);
         six = game.input.keyboard.addKey(KEYCODE.six);
         eight = game.input.keyboard.addKey(KEYCODE.eight);
+        // タイマ
+        game.time.events.loop(Phaser.Timer.SECOND, updateCounter, this);
     }
 
     function update() {
@@ -155,15 +161,15 @@ namespace spock {
 
         if(a.isUp)
     {
-        var i = 0;
+        //var i = 0;
     }else if(a.isDown)
     {
-        if(i == 0)
-        {
+        //if(i == 0)
+        //{
         var diamond = diamonds.create(player.sprite.x, player.sprite.y, 'diamond');
         diamond.body.velocity.x = 300;
-        i = 1;
-        }
+        //i = 1;
+        //}
     }
 
 
@@ -206,6 +212,17 @@ namespace spock {
 
         player2.score += 10;
         scoreText2.text = 'P2.score: ' + player2.score;
+    }
+
+    function createstar(){
+        var stars = game.add.group();
+        stars.enableBody = true;
+    }
+
+    function updateCounter(){
+        /*var counter ;
+        counter++;
+        setText.text('Counter: ' + counter);*/
     }
 
     const socket = io('http://localhost')
