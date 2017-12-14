@@ -11,24 +11,24 @@ namespace spock {
        eight: 104,
     };
 
-    let game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update });
+    let game: Phaser.Game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update });
 
     let player: Phaser.Sprite;
     let player2: Phaser.Sprite;
 
-    let score_player = 0;
-    let score_player2 = 0;
+    let score_player: number = 0;
+    let score_player2: number = 0;
 
     // group
-    let platforms;
-    let stars;
-    let diamonds;
+    let platforms: Phaser.Group;
+    let stars: Phaser.Group;
+    let diamonds: Phaser.Group;
 
-    let scoreText;
-    let scoreText2;
-    let setText;
+    let scoreText: Phaser.Text;
+    let scoreText2: Phaser.Text;
+    let setText: Phaser.Text;
 
-    let cursors;
+    let cursors: Phaser.CursorKeys;
     let a, two, four, six, eight;
 
     function preload() {
