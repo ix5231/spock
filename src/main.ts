@@ -128,8 +128,8 @@ namespace spock {
         game.physics.arcade.collide(player2.sprite, platforms);
         game.physics.arcade.collide(stars, platforms);
 
-        game.physics.arcade.overlap(player.sprite, stars, collectStar, null, this);
-        game.physics.arcade.overlap(player2.sprite, stars, collectStar2, null, this);
+        game.physics.arcade.overlap(player.sprite, stars, collectStar, undefined, this);
+        game.physics.arcade.overlap(player2.sprite, stars, collectStar2, undefined, this);
 
         // 移動
         player.sprite.body.velocity.x = 0;

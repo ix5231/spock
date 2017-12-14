@@ -2,56 +2,63 @@ import * as path from "path";
 import * as Http from "http";
 import * as express from "express";
 import * as socketIo from "socket.io";
-import {Set} from "typescript-collections";
+import {LinkedList, Set} from "typescript-collections";
+
+const max_player: number = 2;
 
 class SessionManager {
-    private player1: number;
-    private player2: number;
-    private player_num: number;
+    private players: LinkedList<string>;
+    private waiting_players: LinkedList<string>;
 
     constructor() {
-        this.player_num = 0;
+        this.players = new LinkedList();
+        this.waiting_players = new LinkedList();
     }
 
-    try_join(player: number): boolean {
-        if(this.player_num === 0) {
-            this.player1 = player;
-            this.player_num++;
-            return true;
-        } else if(this.player_num === 1) {
-            this.player2 = player;
-            this.player_num++;
-            return true;
-        } else {
+    try_join(player: string): boolean {
+        console.log('join');
+        if(this.players.size() >= max_player) { // もういっぱい
+            this.waiting_players.add(player);
             return false;
-        }
-    }
-
-    leave(player: number) {
-        if(this.player1 === player) {
-            this.player1 = this.player2;
-            this.player_num--;
-        } else if(this.player2 === player) {
-            this.player_num--;
         } else {
-            throw new Error('No such plyaer');
+            this.players.add(player);
+            return true;
         }
     }
 
-    ready(): boolean { return this.player_num === 2; }
+    leave(player: string): string | undefined {
+        if(this.players.remove(player)) {
+            return player;
+        } else if (this.waiting_players.remove(player)) {
+            return undefined;
+        } else {
+            throw new Error("No such player")
+        }
+    }
+
+    ready(): boolean { return this.players.size() === 2; }
+
+    try_join_waiter(): string | undefined {
+        const next = this.waiting_players.removeElementAtIndex(0);
+        if(next) { // 待ち人がいた場合
+            this.players.add(next);
+            return next;
+        }
+        return undefined;
+    }
 }
 
 class Server {
-    private app: any;
+    private app: express.Express;
     private port: number;
-    private server: any;
-    private io: any;
+    private server: Http.Server;
+    private io: SocketIO.Server;
 
     private sessions: SessionManager;
 
     constructor(port?: number) {
         this.app = express();
-        this.port = parseInt(process.env.PORT) || 3000;
+        this.port = parseInt(process.env.PORT || "3000");
         this.server = Http.createServer(this.app);
         this.io = socketIo(this.server);
 
@@ -74,12 +81,23 @@ class Server {
     socketOpen() {
         this.io.on('connection', (socket) => {
             socket.on('matching', () => {
-                socket.join('waiting')
-                
+                if(this.sessions.try_join(socket.id)) { // 試合可能状態
+                    socket.join('current_player');
+                    if(this.sessions.ready()) {
+                        this.io.to('current_player').emit('playing');
+                    }
+                }
             });
 
-            socket.on('disconnect'), () => {
-            }
+            socket.on('disconnect', () => {
+                if(this.sessions.leave(socket.id)) { // 試合中のメンバーが退出
+                    const next_player = this.sessions.try_join_waiter();
+                    if(next_player) {
+                        socket.join('current_player');
+                        this.io.to(next_player).emit('playing');
+                    }
+                }
+            });
         })
     }
 }
