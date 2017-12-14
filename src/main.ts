@@ -128,8 +128,8 @@ namespace spock {
         game.physics.arcade.collide(player2.sprite, platforms);
         game.physics.arcade.collide(stars, platforms);
 
-        game.physics.arcade.overlap(player.sprite, stars, collectStar, null, this);
-        game.physics.arcade.overlap(player2.sprite, stars, collectStar2, null, this);
+        game.physics.arcade.overlap(player.sprite, stars, collectStar, undefined, this);
+        game.physics.arcade.overlap(player2.sprite, stars, collectStar2, undefined, this);
 
         // 移動
         player.sprite.body.velocity.x = 0;
@@ -159,7 +159,7 @@ namespace spock {
             player.sprite.body.velocity.y = 1000;
         }
 
-        if(a.isUp)
+    if(a.isUp)
     {
         //var i = 0;
     }else if(a.isDown)
@@ -196,8 +196,6 @@ namespace spock {
         if (two.isDown) {
             player2.sprite.body.velocity.y = 1000;
         }
-
-
     }
 
     function collectStar(_, star) {
@@ -225,6 +223,8 @@ namespace spock {
         setText.text('Counter: ' + counter);*/
     }
 
-    const socket = io('http://localhost')
-    socket.on('connect', () => console.log('Hello'))
+    let socket = io.connect()
+    socket.emit('matching')
+
+    socket.on('playing', () => console.log('Start'))
 }

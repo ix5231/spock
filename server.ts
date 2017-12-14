@@ -1,35 +1,108 @@
-import * as path from "path"
-import * as Http from "http"
-import * as express from "express"
-import * as socketIo from "socket.io"
-import * as cors from "cors"
+import * as path from "path";
+import * as Http from "http";
+import * as express from "express";
+import * as socketIo from "socket.io";
+import {LinkedList, Set} from "typescript-collections";
 
-class Server {
-    private app: any
-    private port: number
-    private server: any
-    private io: any
+const max_player: number = 2;
 
-    constructor(port?: number) {
-        this.app = express()
-        this.port = parseInt(process.env.PORT) || 3000
-        this.server = Http.createServer(this.app)
-        this.io = socketIo(this.server)
+class SessionManager {
+    private players: LinkedList<string>;
+    private waiting_players: LinkedList<string>;
 
-        this.app.use(cors());
-        this.app.use(express.static('dist'))
-        this.app.use('/dist', express.static(path.join(__dirname, 'dist')))
-        this.app.use('/assets', express.static(path.join(__dirname, 'assets')))
-        this.app.get('/', (req, res) => {
-            res.sendFile(path.join(__dirname, 'index.html'))
-        })
+    constructor() {
+        this.players = new LinkedList();
+        this.waiting_players = new LinkedList();
     }
 
-    listen() {
-        this.server.listen(this.port, () => console.log('Listening on ' + this.port))
+    try_join(player: string): boolean {
+        console.log('join');
+        if(this.players.size() >= max_player) { // もういっぱい
+            this.waiting_players.add(player);
+            return false;
+        } else {
+            this.players.add(player);
+            return true;
+        }
+    }
 
-        this.io.on('connect', (_) => { })
+    leave(player: string): string | undefined {
+        if(this.players.remove(player)) {
+            return player;
+        } else if (this.waiting_players.remove(player)) {
+            return undefined;
+        } else {
+            throw new Error("No such player")
+        }
+    }
+
+    ready(): boolean { return this.players.size() === 2; }
+
+    try_join_waiter(): string | undefined {
+        const next = this.waiting_players.removeElementAtIndex(0);
+        if(next) { // 待ち人がいた場合
+            this.players.add(next);
+            return next;
+        }
+        return undefined;
     }
 }
 
-new Server().listen();
+class Server {
+    private app: express.Express;
+    private port: number;
+    private server: Http.Server;
+    private io: SocketIO.Server;
+
+    private sessions: SessionManager;
+
+    constructor(port?: number) {
+        this.app = express();
+        this.port = parseInt(process.env.PORT || "3000");
+        this.server = Http.createServer(this.app);
+        this.io = socketIo(this.server);
+
+        this.sessions = new SessionManager();
+    }
+
+    route() {
+        this.app.use(express.static('dist'));
+        this.app.use('/dist', express.static(path.join(__dirname, 'dist')));
+        this.app.use('/assets', express.static(path.join(__dirname, 'assets')));
+        this.app.get('/', (req, res) => {
+            res.sendFile(path.join(__dirname, 'index.html'))
+        });
+    }
+
+    listen() {
+        this.server.listen(this.port, () => console.log('Listening on ' + this.port));
+    }
+
+    socketOpen() {
+        this.io.on('connection', (socket) => {
+            socket.on('matching', () => {
+                if(this.sessions.try_join(socket.id)) { // 試合可能状態
+                    socket.join('current_player');
+                    if(this.sessions.ready()) {
+                        this.io.to('current_player').emit('playing');
+                    }
+                }
+            });
+
+            socket.on('disconnect', () => {
+                if(this.sessions.leave(socket.id)) { // 試合中のメンバーが退出
+                    const next_player = this.sessions.try_join_waiter();
+                    if(next_player) {
+                        socket.join('current_player');
+                        this.io.to(next_player).emit('playing');
+                    }
+                }
+            });
+        })
+    }
+}
+
+let server = new Server();
+server.route();
+server.socketOpen();
+server.listen();
