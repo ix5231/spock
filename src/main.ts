@@ -11,7 +11,10 @@ namespace spock {
        eight: 104,
     };
 
-    let game: Phaser.Game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update });
+    const screen_width: number = 800;
+    const screen_height: number = 600;
+
+    let game: Phaser.Game = new Phaser.Game(screen_width, screen_height, Phaser.AUTO, '', { preload: preload, create: create, update: update });
 
     let player: Phaser.Sprite;
     let player2: Phaser.Sprite;
@@ -43,13 +46,13 @@ namespace spock {
     function create() {
         // 物理
         game.physics.startSystem(Phaser.Physics.ARCADE);
+
         game.add.sprite(0, 0, 'sky');
 
         setup_field();
         setup_players();
         setup_stars();
 
-        // 一定時間ごとに星作成
         game.time.events.repeat(Phaser.Timer.SECOND * 2, 10, () =>  {
             var stars = game.add.group();
             stars.enableBody = true;
@@ -70,12 +73,14 @@ namespace spock {
 
         game.physics.arcade.overlap(player, stars, (_, star) => {
             star.kill();
+            create_star(screen_width * Math.random(), 0);
 
             score_player += 10;
             scoreText.text = 'P1.score: ' + score_player;
         }, undefined, this);
         game.physics.arcade.overlap(player2, stars, (_, star) => {
             star.kill();
+            create_star(screen_width * Math.random(), 0);
 
             score_player2 += 10;
             scoreText.text = 'P2.score: ' + score_player2;
@@ -169,6 +174,13 @@ namespace spock {
     }
 
     // 星追加
+    function create_star(x: number, y: number) {
+        let star = stars.create(x, y, 'star');
+        star.body.gravity.y = 300;
+        star.body.bounce.y = 0.7 + Math.random() * 0.2;
+    }
+
+    // 初期星追加
     function setup_stars() {
         stars = game.add.group();
         stars.enableBody = true;
@@ -176,9 +188,7 @@ namespace spock {
         diamonds.enableBody = true;
 
         for (let i = 0; i < 12; i++) {
-            let star = stars.create(i * 70, 0, 'star');
-            star.body.gravity.y = 300;
-            star.body.bounce.y = 0.7 + Math.random() * 0.2;
+            create_star(i * 70, 0);
         }
     }
 
@@ -215,20 +225,6 @@ namespace spock {
         four = game.input.keyboard.addKey(KEYCODE.four);
         six = game.input.keyboard.addKey(KEYCODE.six);
         eight = game.input.keyboard.addKey(KEYCODE.eight);
-    }
-
-    function collectStar(_, star) {
-        star.kill();
-
-        score_player += 10;
-        scoreText.text = 'P1.score: ' + score_player;
-    }
-
-    function collectStar2(_, star) {
-        star.kill();
-
-        score_player2 += 10;
-        scoreText2.text = 'P2.score: ' + score_player2;
     }
 
     function updateCounter(){
