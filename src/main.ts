@@ -14,22 +14,23 @@ namespace spock {
     const screen_width: number = 800;
     const screen_height: number = 600;
 
-    let game: Phaser.Game = new Phaser.Game(screen_width, screen_height, Phaser.AUTO, '', { preload: preload, create: create, update: update });
+    const game_time: number = Phaser.Timer.MINUTE * 1 + Phaser.Timer.SECOND * 30;
+
+    let game: Phaser.Game = new Phaser.Game(screen_width, screen_height, Phaser.AUTO, '', { preload: preload, create: create, update: update, render: render});
 
     let player: Phaser.Sprite;
     let player2: Phaser.Sprite;
 
-    let score_player: number = 0;
-    let score_player2: number = 0;
+    let scorePlayer1: number = 0;
+    let scorePlayer2: number = 0;
 
     // group
     let platforms: Phaser.Group;
     let stars: Phaser.Group;
     let diamonds: Phaser.Group;
 
-    let scoreText: Phaser.Text;
-    let scoreText2: Phaser.Text;
-    let setText: Phaser.Text;
+    let ui;
+    let one_game_timer;
 
     let cursors: Phaser.CursorKeys;
     let a, two, four, six, eight;
@@ -52,17 +53,23 @@ namespace spock {
         setup_field();
         setup_players();
         setup_stars();
+        ui = new Ui();
+        setup_input();
+        one_game_timer = new Timer(game, game_time, () => {});
 
         game.time.events.repeat(Phaser.Timer.SECOND * 2, 10, () =>  {
             var stars = game.add.group();
             stars.enableBody = true;
         }, this);
 
-        setup_ui();
-        setup_input();
-
         // タイマ
         game.time.events.loop(Phaser.Timer.SECOND, updateCounter, this);
+
+        one_game_timer.start();
+    }
+
+    function render() {
+        ui.refresh();
     }
 
     function update() {
@@ -75,15 +82,13 @@ namespace spock {
             star.kill();
             create_star(screen_width * Math.random(), 0);
 
-            score_player += 10;
-            scoreText.text = 'P1.score: ' + score_player;
+            scorePlayer1 += 10;
         }, undefined, this);
         game.physics.arcade.overlap(player2, stars, (_, star) => {
             star.kill();
             create_star(screen_width * Math.random(), 0);
 
-            score_player2 += 10;
-            scoreText.text = 'P2.score: ' + score_player2;
+            scorePlayer2 += 10;
         }, undefined, this);
 
         // 移動
@@ -153,24 +158,76 @@ namespace spock {
         }
     }
 
+    class Ui {
+        private scorePlayer1: Phaser.Text;
+        private scorePlayer2: Phaser.Text;
+        private timeLeft: Phaser.Text;
+
+        public constructor() {
+            this.scorePlayer1 = game.add.text(16, 16, 'P1.score:', { fontSize: 32, fill: '#000' });
+            this.scorePlayer2 = game.add.text(600, 16, 'P2.score:', { fontSize: 32, fill: '#000' });
+            this.timeLeft = game.add.text(280, 16, 'TimeLeft:', { fontSize: 32, fill: '#000' });
+        }
+
+        public refresh() {
+            this.scorePlayer1.text = 'P1.score: ' + scorePlayer1;
+            this.scorePlayer2.text = 'P2.score: ' + scorePlayer2;
+            this.timeLeft.text = 'TimeLeft: ' + one_game_timer.text();
+        }
+    }
+
+    class Timer {
+        private timer: Phaser.Timer;
+        private timerEvent: Phaser.TimerEvent;
+        private time: number;
+        private callback: Function;
+
+        public constructor(game: Phaser.Game, time: number, callback: Function) {
+            this.timer = game.time.create();
+            this.time = time;
+            this.callback = callback;
+        }
+
+        public start() {
+            this.timerEvent = this.timer.add(Phaser.Timer.MINUTE * 1 + Phaser.Timer.SECOND * 30, () => {
+                this.timer.stop();
+                this.callback();
+            });
+            this.timer.start();
+        }
+
+        public text(): string {
+            return this.formatTime(Math.round((this.timerEvent.delay - this.timer.ms) / 1000));
+        }
+
+        private formatTime(s: number): string {
+            let minutes = Math.floor(s / 60);
+            let seconds = (s - minutes * 60);
+            return String("0" + minutes).substr(-2) + ":" + String("0" + seconds).substr(-2);   
+        }
+    }
+
     // プレイヤー追加
     function setup_players() {
-        function setup_player_sprite(p: Phaser.Sprite) {
-            game.physics.arcade.enable(p);
-
-            p.body.bounce.y = 0
-                p.body.gravity.y = 300
-                p.body.collideWorldBounds = true
-
-                p.animations.add('left', [0, 1, 2, 3], 10, true);
-            p.animations.add('right', [5, 6, 7, 8], 10, true);
-        } 
-
         player = game.add.sprite(32, game.world.height - 150, 'dude');
-        player2 = game.add.sprite(700, game.world.height - 150, 'baddie');
+        game.physics.arcade.enable(player);
 
-        setup_player_sprite(player);
-        setup_player_sprite(player2);
+        player.body.bounce.y = 0
+        player.body.gravity.y = 300
+        player.body.collideWorldBounds = true
+
+        player.animations.add('left', [0, 1, 2, 3], 10, true);
+        player.animations.add('right', [5, 6, 7, 8], 10, true);
+
+        player2 = game.add.sprite(700, game.world.height - 150, 'baddie');
+        game.physics.arcade.enable(player2);
+
+        player2.body.bounce.y = 0
+        player2.body.gravity.y = 300
+        player2.body.collideWorldBounds = true
+
+        player2.animations.add('left', [0, 1], 10, true);
+        player2.animations.add('right', [2, 3], 10, true);
     }
 
     // 星追加
@@ -207,14 +264,6 @@ namespace spock {
         ledge.body.immovable = true;
         ledge = platforms.create(-150, 250, 'ground');
         ledge.body.immovable = true;
-    }
-
-    // UIセットアップ
-    function setup_ui() {
-        // スコア
-        scoreText = game.add.text(16, 16, 'P1.score: 0', { fontSize: 32, fill: '#000' });
-        scoreText2 = game.add.text(600, 16, 'P2.score: 0', { fontSize: 32, fill: '#000' });
-        setText = game.add.text(300, 16, 'Counter: 0', { fontSize: 32, fill: '#000' });
     }
 
     // 操作セットアップ
