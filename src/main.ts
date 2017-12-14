@@ -3,41 +3,33 @@ import * as Phaser from 'phaser-ce';
 import * as io from 'socket.io-client'
 
 namespace spock {
-    class Player {
-        public sprite: Phaser.Sprite
-        public score: number
-
-        constructor(sprite: Phaser.Sprite) {
-            this.sprite = sprite
-            this.score = 0
-
-            game.physics.arcade.enable(this.sprite);
-
-            this.sprite.body.bounce.y = 0
-            this.sprite.body.gravity.y = 300
-            this.sprite.body.collideWorldBounds = true
-        }
-
-        addAnimation(name: string, frame: Array<number>, num: number, loop: boolean) {
-            this.sprite.animations.add(name, frame, num, loop);
-        }
-
-        /*collectStar(star) {
-            star.kill();
-
-            this.score += 10;
-            scoreText2.text = 'P2.score: ' + this.score;
-        }*/
-    }
-
     const KEYCODE = {
-        a: 65,
-        two: 98, four: 100,
-        six: 102,
-        eight: 104,
+       a: 65,
+       two: 98,
+       four: 100,
+       six: 102,
+       eight: 104,
     };
 
-    let game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update });
+    let game: Phaser.Game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update });
+
+    let player: Phaser.Sprite;
+    let player2: Phaser.Sprite;
+
+    let score_player: number = 0;
+    let score_player2: number = 0;
+
+    // group
+    let platforms: Phaser.Group;
+    let stars: Phaser.Group;
+    let diamonds: Phaser.Group;
+
+    let scoreText: Phaser.Text;
+    let scoreText2: Phaser.Text;
+    let setText: Phaser.Text;
+
+    let cursors: Phaser.CursorKeys;
+    let a, two, four, six, eight;
 
     function preload() {
         game.load.image('sky', 'assets/sky.png');
@@ -48,27 +40,150 @@ namespace spock {
         game.load.image('diamond', 'assets/diamond.png');
     }
 
-    let player: Player;
-    let player2: Player;
-
-    // group
-    let platforms;
-    let cursors;
-    let a, two, four, six, eight;
-
-    let stars;
-    let diamonds;
-    let scoreText;
-    let scoreText2;
-    let setText;
-
     function create() {
         // 物理
         game.physics.startSystem(Phaser.Physics.ARCADE);
-
-
         game.add.sprite(0, 0, 'sky');
 
+        setup_field();
+        setup_players();
+        setup_stars();
+
+        // 一定時間ごとに星作成
+        game.time.events.repeat(Phaser.Timer.SECOND * 2, 10, () =>  {
+            var stars = game.add.group();
+            stars.enableBody = true;
+        }, this);
+
+        setup_ui();
+        setup_input();
+
+        // タイマ
+        game.time.events.loop(Phaser.Timer.SECOND, updateCounter, this);
+    }
+
+    function update() {
+        // あたり判定
+        game.physics.arcade.collide(player, platforms);
+        game.physics.arcade.collide(player2, platforms);
+        game.physics.arcade.collide(stars, platforms);
+
+        game.physics.arcade.overlap(player, stars, (_, star) => {
+            star.kill();
+
+            score_player += 10;
+            scoreText.text = 'P1.score: ' + score_player;
+        }, undefined, this);
+        game.physics.arcade.overlap(player2, stars, (_, star) => {
+            star.kill();
+
+            score_player2 += 10;
+            scoreText.text = 'P2.score: ' + score_player2;
+        }, undefined, this);
+
+        // 移動
+        player.body.velocity.x = 0;
+        player2.body.velocity.x = 0;
+
+        if (cursors.left.isDown) {
+            player.body.velocity.x = -150;
+
+            player.animations.play('left');
+        }
+        else if (cursors.right.isDown) {
+            player.body.velocity.x = 150;
+
+            player.animations.play('right');
+        }
+        else {
+            player.animations.stop();
+
+            player.frame = 4;
+        }
+
+        if (cursors.up.isDown && player.body.touching.down) {
+            player.body.velocity.y = -350;
+        }
+
+        if (cursors.down.isDown) {
+            player.body.velocity.y = 1000;
+        }
+
+        if(a.isUp)
+        {
+            //var i = 0;
+        }else if(a.isDown)
+        {
+            //if(i == 0)
+            //{
+            let diamond = diamonds.create(player.x, player.y, 'diamond');
+            diamond.body.velocity.x = 300;
+            //i = 1;
+            //}
+        }
+
+
+        if (four.isDown) {
+            player2.body.velocity.x = -150;
+
+            player2.animations.play('left');
+        }
+        else if (six.isDown) {
+            player2.body.velocity.x = 150;
+
+            player2.animations.play('right');
+        }
+        else {
+            player2.animations.stop();
+
+            player2.frame = 1;
+        }
+
+        if (eight.isDown && player2.body.touching.down) {
+            player2.body.velocity.y = -350;
+        }
+
+        if (two.isDown) {
+            player2.body.velocity.y = 1000;
+        }
+    }
+
+    // プレイヤー追加
+    function setup_players() {
+        function setup_player_sprite(p: Phaser.Sprite) {
+            game.physics.arcade.enable(p);
+
+            p.body.bounce.y = 0
+                p.body.gravity.y = 300
+                p.body.collideWorldBounds = true
+
+                p.animations.add('left', [0, 1, 2, 3], 10, true);
+            p.animations.add('right', [5, 6, 7, 8], 10, true);
+        } 
+
+        player = game.add.sprite(32, game.world.height - 150, 'dude');
+        player2 = game.add.sprite(700, game.world.height - 150, 'baddie');
+
+        setup_player_sprite(player);
+        setup_player_sprite(player2);
+    }
+
+    // 星追加
+    function setup_stars() {
+        stars = game.add.group();
+        stars.enableBody = true;
+        diamonds = game.add.group();
+        diamonds.enableBody = true;
+
+        for (let i = 0; i < 12; i++) {
+            let star = stars.create(i * 70, 0, 'star');
+            star.body.gravity.y = 300;
+            star.body.bounce.y = 0.7 + Math.random() * 0.2;
+        }
+    }
+
+    // フィールド作成
+    function setup_field() {
         // 足場グループ
         platforms = game.add.group();
         platforms.enableBody = true;
@@ -82,149 +197,48 @@ namespace spock {
         ledge.body.immovable = true;
         ledge = platforms.create(-150, 250, 'ground');
         ledge.body.immovable = true;
+    }
 
-        // プレイヤー作成
-        player = new Player(game.add.sprite(32, game.world.height - 150, 'dude'));
-        player2 = new Player(game.add.sprite(700, game.world.height - 150, 'baddie'));
-
-        player.addAnimation('left', [0, 1, 2, 3], 10, true);
-        player.addAnimation('right', [5, 6, 7, 8], 10, true);
-        player2.addAnimation('left', [0, 1], 10, true);
-        player2.addAnimation('right', [2, 3], 10, true);
-
-        // 星追加
-        stars = game.add.group();
-        stars.enableBody = true;
-        diamonds = game.add.group();
-        diamonds.enableBody = true;
-
-        for (var i = 0; i < 12; i++) {
-            var star = stars.create(i * 70, 0, 'star');
-            star.body.gravity.y = 300;
-            star.body.bounce.y = 0.7 + Math.random() * 0.2;
-        }
-
-        game.time.events.repeat(Phaser.Timer.SECOND * 2, 10, createstar, this);
-
+    // UIセットアップ
+    function setup_ui() {
         // スコア
         scoreText = game.add.text(16, 16, 'P1.score: 0', { fontSize: 32, fill: '#000' });
         scoreText2 = game.add.text(600, 16, 'P2.score: 0', { fontSize: 32, fill: '#000' });
         setText = game.add.text(300, 16, 'Counter: 0', { fontSize: 32, fill: '#000' });
-        
-        // 操作
+    }
+
+    // 操作セットアップ
+    function setup_input() {
         cursors = game.input.keyboard.createCursorKeys();
         a = game.input.keyboard.addKey(KEYCODE.a);
         two = game.input.keyboard.addKey(KEYCODE.two);
         four = game.input.keyboard.addKey(KEYCODE.four);
         six = game.input.keyboard.addKey(KEYCODE.six);
         eight = game.input.keyboard.addKey(KEYCODE.eight);
-        // タイマ
-        game.time.events.loop(Phaser.Timer.SECOND, updateCounter, this);
-    }
-
-    function update() {
-        // あたり判定
-        game.physics.arcade.collide(player.sprite, platforms);
-        game.physics.arcade.collide(player2.sprite, platforms);
-        game.physics.arcade.collide(stars, platforms);
-
-        game.physics.arcade.overlap(player.sprite, stars, collectStar, undefined, this);
-        game.physics.arcade.overlap(player2.sprite, stars, collectStar2, undefined, this);
-
-        // 移動
-        player.sprite.body.velocity.x = 0;
-        player2.sprite.body.velocity.x = 0;
-
-        if (cursors.left.isDown) {
-            player.sprite.body.velocity.x = -150;
-
-            player.sprite.animations.play('left');
-        }
-        else if (cursors.right.isDown) {
-            player.sprite.body.velocity.x = 150;
-
-            player.sprite.animations.play('right');
-        }
-        else {
-            player.sprite.animations.stop();
-
-            player.sprite.frame = 4;
-        }
-
-        if (cursors.up.isDown && player.sprite.body.touching.down) {
-            player.sprite.body.velocity.y = -350;
-        }
-
-        if (cursors.down.isDown) {
-            player.sprite.body.velocity.y = 1000;
-        }
-
-    if(a.isUp)
-    {
-        //var i = 0;
-    }else if(a.isDown)
-    {
-        //if(i == 0)
-        //{
-        var diamond = diamonds.create(player.sprite.x, player.sprite.y, 'diamond');
-        diamond.body.velocity.x = 300;
-        //i = 1;
-        //}
-    }
-
-
-        if (four.isDown) {
-            player2.sprite.body.velocity.x = -150;
-
-            player2.sprite.animations.play('left');
-        }
-        else if (six.isDown) {
-            player2.sprite.body.velocity.x = 150;
-
-            player2.sprite.animations.play('right');
-        }
-        else {
-            player2.sprite.animations.stop();
-
-            player2.sprite.frame = 1;
-        }
-
-        if (eight.isDown && player2.sprite.body.touching.down) {
-            player2.sprite.body.velocity.y = -350;
-        }
-
-        if (two.isDown) {
-            player2.sprite.body.velocity.y = 1000;
-        }
     }
 
     function collectStar(_, star) {
         star.kill();
 
-        player.score += 10;
-        scoreText.text = 'P1.score: ' + player.score;
+        score_player += 10;
+        scoreText.text = 'P1.score: ' + score_player;
     }
 
     function collectStar2(_, star) {
         star.kill();
 
-        player2.score += 10;
-        scoreText2.text = 'P2.score: ' + player2.score;
-    }
-
-    function createstar(){
-        var stars = game.add.group();
-        stars.enableBody = true;
+        score_player2 += 10;
+        scoreText2.text = 'P2.score: ' + score_player2;
     }
 
     function updateCounter(){
         /*var counter ;
-        counter++;
-        setText.text('Counter: ' + counter);*/
+          counter++;
+          setText.text('Counter: ' + counter);*/
     }
 
-    let socket = io.connect()
-    socket.emit('matching')
+    let socket = io.connect();
+    socket.emit('matching');
 
-    socket.on('playing', () => console.log('Start'))
+    socket.on('playing', () => console.log('Start'));
 }
