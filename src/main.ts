@@ -3,33 +3,6 @@ import * as Phaser from 'phaser-ce';
 import * as io from 'socket.io-client'
 
 namespace spock {
-    class Player {
-        public sprite: Phaser.Sprite
-        public score: number
-
-        constructor(sprite: Phaser.Sprite) {
-            this.sprite = sprite
-            this.score = 0
-
-            game.physics.arcade.enable(this.sprite);
-
-            this.sprite.body.bounce.y = 0
-            this.sprite.body.gravity.y = 300
-            this.sprite.body.collideWorldBounds = true
-        }
-
-        addAnimation(name: string, frame: Array<number>, num: number, loop: boolean) {
-            this.sprite.animations.add(name, frame, num, loop);
-        }
-
-        /*collectStar(star) {
-            star.kill();
-
-            this.score += 10;
-            scoreText2.text = 'P2.score: ' + this.score;
-        }*/
-    }
-
     const KEYCODE = {
         a: 65,
         two: 98, four: 100,
@@ -48,8 +21,11 @@ namespace spock {
         game.load.image('diamond', 'assets/diamond.png');
     }
 
-    let player: Player;
-    let player2: Player;
+    let player: Phaser.Sprite;
+    let player2: Phaser.Sprite;
+
+    let score_player;
+    let score_player2;
 
     // group
     let platforms;
@@ -84,13 +60,13 @@ namespace spock {
         ledge.body.immovable = true;
 
         // プレイヤー作成
-        player = new Player(game.add.sprite(32, game.world.height - 150, 'dude'));
-        player2 = new Player(game.add.sprite(700, game.world.height - 150, 'baddie'));
+        player = game.add.sprite(32, game.world.height - 150, 'dude');
+        player2 = game.add.sprite(700, game.world.height - 150, 'baddie');
 
-        player.addAnimation('left', [0, 1, 2, 3], 10, true);
-        player.addAnimation('right', [5, 6, 7, 8], 10, true);
-        player2.addAnimation('left', [0, 1], 10, true);
-        player2.addAnimation('right', [2, 3], 10, true);
+        player.animations.add('left', [0, 1, 2, 3], 10, true);
+        player.animations.add('right', [5, 6, 7, 8], 10, true);
+        player2.animations.add('left', [0, 1], 10, true);
+        player2.animations.add('right', [2, 3], 10, true);
 
         // 星追加
         stars = game.add.group();
@@ -124,92 +100,93 @@ namespace spock {
 
     function update() {
         // あたり判定
-        game.physics.arcade.collide(player.sprite, platforms);
-        game.physics.arcade.collide(player2.sprite, platforms);
+        game.physics.arcade.collide(player, platforms);
+        game.physics.arcade.collide(player2, platforms);
         game.physics.arcade.collide(stars, platforms);
 
-        game.physics.arcade.overlap(player.sprite, stars, collectStar, undefined, this);
-        game.physics.arcade.overlap(player2.sprite, stars, collectStar2, undefined, this);
+        //game.physics.arcade.overlap(player, stars, collectStar, undefined, this);
+        game.physics.arcade.overlap(player, stars, collectStar, undefined, this);
+        game.physics.arcade.overlap(player2, stars, collectStar2, undefined, this);
 
         // 移動
-        player.sprite.body.velocity.x = 0;
-        player2.sprite.body.velocity.x = 0;
+        player.body.velocity.x = 0;
+        player2.body.velocity.x = 0;
 
         if (cursors.left.isDown) {
-            player.sprite.body.velocity.x = -150;
+            player.body.velocity.x = -150;
 
-            player.sprite.animations.play('left');
+            player.animations.play('left');
         }
         else if (cursors.right.isDown) {
-            player.sprite.body.velocity.x = 150;
+            player.body.velocity.x = 150;
 
-            player.sprite.animations.play('right');
+            player.animations.play('right');
         }
         else {
-            player.sprite.animations.stop();
+            player.animations.stop();
 
-            player.sprite.frame = 4;
+            player.frame = 4;
         }
 
-        if (cursors.up.isDown && player.sprite.body.touching.down) {
-            player.sprite.body.velocity.y = -350;
+        if (cursors.up.isDown && player.body.touching.down) {
+            player.body.velocity.y = -350;
         }
 
         if (cursors.down.isDown) {
-            player.sprite.body.velocity.y = 1000;
+            player.body.velocity.y = 1000;
         }
 
-    if(a.isUp)
-    {
-        //var i = 0;
-    }else if(a.isDown)
-    {
-        //if(i == 0)
-        //{
-        var diamond = diamonds.create(player.sprite.x, player.sprite.y, 'diamond');
-        diamond.body.velocity.x = 300;
-        //i = 1;
-        //}
-    }
+        if(a.isUp)
+        {
+            //var i = 0;
+        }else if(a.isDown)
+        {
+            //if(i == 0)
+            //{
+            var diamond = diamonds.create(player.x, player.y, 'diamond');
+            diamond.body.velocity.x = 300;
+            //i = 1;
+            //}
+        }
 
 
         if (four.isDown) {
-            player2.sprite.body.velocity.x = -150;
+            player2.body.velocity.x = -150;
 
-            player2.sprite.animations.play('left');
+            player2.animations.play('left');
         }
         else if (six.isDown) {
-            player2.sprite.body.velocity.x = 150;
+            player2.body.velocity.x = 150;
 
-            player2.sprite.animations.play('right');
+            player2.animations.play('right');
         }
         else {
-            player2.sprite.animations.stop();
+            player2.animations.stop();
 
-            player2.sprite.frame = 1;
+            player2.frame = 1;
         }
 
-        if (eight.isDown && player2.sprite.body.touching.down) {
-            player2.sprite.body.velocity.y = -350;
+        if (eight.isDown && player2.body.touching.down) {
+            player2.body.velocity.y = -350;
         }
 
         if (two.isDown) {
-            player2.sprite.body.velocity.y = 1000;
+            player2.body.velocity.y = 1000;
         }
     }
 
     function collectStar(_, star) {
         star.kill();
 
-        player.score += 10;
-        scoreText.text = 'P1.score: ' + player.score;
+        score_player += 10;
+        scoreText.text = 'P1.score: ' + score_player;
     }
 
     function collectStar2(_, star) {
         star.kill();
 
-        player2.score += 10;
-        scoreText2.text = 'P2.score: ' + player2.score;
+        score_player2 += 10;
+        scoreText2.text = 'P2.score: ' + score_player2;
     }
 
     function createstar(){
