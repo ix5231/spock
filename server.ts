@@ -89,6 +89,11 @@ class Server {
                 }
             });
 
+            socket.on('moveleft', () => socket.broadcast.to('current_player').emit('moveleft'));
+            socket.on('moveright', () => socket.broadcast.to('current_player').emit('moveright'));
+            socket.on('jump', () => socket.broadcast.to('current_player').emit('jump'));
+            socket.on('stop', () => socket.broadcast.to('current_player').emit('stop'));
+
             socket.on('disconnect', () => {
                 if(this.sessions.leave(socket.id)) { // ‡’†‚Ìƒƒ“ƒo[‚ª‘Şo
                     const next_player = this.sessions.try_join_waiter();
