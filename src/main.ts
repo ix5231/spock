@@ -1,6 +1,7 @@
 import { ENABLE_DISABLE_REGEX } from 'tslint/lib';
 import * as Phaser from 'phaser-ce';
-import * as io from 'socket.io-client'
+import * as io from 'socket.io-client';
+import * as seedrandom from 'seedrandom';
 
 namespace spock {
     const screen_width: number = 800;
@@ -108,6 +109,8 @@ namespace spock {
         // keys
         private cursors: Phaser.CursorKeys;
 
+        private hitPlatform: boolean;
+
         public create() {
             game.add.sprite(0, 0, 'sky');
 
@@ -132,7 +135,7 @@ namespace spock {
 
         public update() {
             // あたり判定
-            game.physics.arcade.collide(this.player1, this.platforms);
+            this.hitPlatform = game.physics.arcade.collide(this.player1, this.platforms);
             game.physics.arcade.collide(this.player2, this.platforms);
             game.physics.arcade.collide(this.stars, this.platforms);
 
@@ -162,12 +165,14 @@ namespace spock {
             } else {
                 action = Action.Stop;
             }
-            if (this.cursors.up.isDown && this.player1.body.touching.down) {
+            if (this.cursors.up.isDown && this.player1.body.touching.down &&
+                this.hitPlatform) {
                 action = Action.Jump;
             }
 
             this.handleMove(this.player1, action);
             client.emitAction(action);
+            client.emitPos(this.player1.x, this.player1.y);
         }
 
         // 移動処理
@@ -194,6 +199,11 @@ namespace spock {
 
         public enemyMove(action: Action) {
             this.handleMove(this.player2, action);
+        }
+
+        public enemyPosSet(x: number, y: number) {
+            this.player2.x = x;
+            this.player2.y = y;
         }
 
         // プレイヤー追加
@@ -330,10 +340,18 @@ namespace spock {
             this.socket.emit('action', action);
         }
 
+        public emitPos(x: number, y: number) {
+            this.socket.emit('mypos', x, y);
+        }
+
         private registerHandlers() {
-            this.socket.on('playing', () => matchingState.gameStart());
+            this.socket.on('playing', (seed: number) => {
+                seedrandom(String(seed), { global: true });
+                matchingState.gameStart()
+            });
             this.socket.on('host', () => matchingState.awareImHost());
             this.socket.on('action', (a: Action) => gamingState.enemyMove(a));
+            this.socket.on('mypos', (x: number, y: number) => gamingState.enemyPosSet(x, y));
         }
     }
 

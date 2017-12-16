@@ -84,7 +84,8 @@ class Server {
                 if (this.sessions.try_join(socket.id)) { // 試合可能状態
                     socket.join('current_player');
                     if (this.sessions.ready()) {
-                        this.io.to('current_player').emit('playing');
+                        const seed: number = Math.random();
+                        this.io.to('current_player').emit('playing', seed);
                     } else {
                         this.io.to(socket.id).emit('host');
                     }
@@ -92,6 +93,7 @@ class Server {
             });
 
             socket.on('action', (a) => socket.broadcast.to('current_player').emit('action', a));
+            socket.on('mypos', (x, y) => socket.broadcast.to('current_player').emit('mypos', x, y));
 
             socket.on('disconnect', () => {
                 if (this.sessions.leave(socket.id)) { // 試合中のメンバーが退出
