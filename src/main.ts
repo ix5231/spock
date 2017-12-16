@@ -252,7 +252,7 @@ namespace spock {
 
             this.player1.animations.add('left', [0, 1, 2, 3], 10, true);
             this.player1.animations.add('right', [5, 6, 7, 8], 10, true);
-
+          
             this.player2 = game.add.sprite(700, game.world.height - 150, 'baddie');
             game.physics.arcade.enable(this.player2);
 
@@ -282,6 +282,7 @@ namespace spock {
         private setupStars() {
             this.stars = game.add.group();
             this.stars.enableBody = true;
+          
             this.diamonds1 = game.add.group();
             this.diamonds1.enableBody = true;
             this.diamonds2 = game.add.group();
@@ -366,7 +367,6 @@ namespace spock {
 
         constructor() {
             this.socket = io.connect();
-
             this.registerHandlers();
         }
 
@@ -391,6 +391,9 @@ namespace spock {
             this.socket.on('action', (a: Action) => gamingState.enemyMove(a));
             this.socket.on('mypos', (x: number, y: number) => gamingState.enemyPosSet(x, y));
             this.socket.on('reset', () => game.state.start('boot', true, false));
+            this.socket.on('host', () => matchingState.awareImHost());
+            this.socket.on('action', (a: Action) => gamingState.enemyMove(a));
+            this.socket.on('mypos', (x: number, y: number) => gamingState.enemyPosSet(x, y));
         }
     }
 

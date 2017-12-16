@@ -98,6 +98,7 @@ class Server {
             socket.on('disconnect', () => {
                 if (this.sessions.leave(socket.id)) { // 試合中のメンバーが退出
                     this.io.to(this.sessions.players[0]).emit('reset');
+
                     const next_player = this.sessions.try_join_waiter();
                     if (next_player) {
                         socket.join('current_player');
