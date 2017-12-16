@@ -9,18 +9,11 @@ namespace spock {
 
     const game_time: number = Phaser.Timer.MINUTE * 1 + Phaser.Timer.SECOND * 30;
 
-    const KEYCODE = {
-        a: 65,
-        two: 98,
-        four: 100,
-        six: 102,
-        eight: 104,
-    };
-
     enum Action {
         MoveLeft,
         MoveRight,
         Jump,
+        Attack,
         Stop,
     }
 
@@ -74,8 +67,8 @@ namespace spock {
             game.state.start('gaming');
         }
 
-        public awareImHost() {
-            this.isHost = true;
+        public isOurHost(h: boolean) {
+            this.isHost = h;
         }
 
         public amIHost(): boolean {
@@ -101,15 +94,18 @@ namespace spock {
         // groups
         private platforms: Phaser.Group;
         private stars: Phaser.Group;
-        private diamonds: Phaser.Group;
+        private diamonds1: Phaser.Group;
+        private diamonds2: Phaser.Group;
 
         // timers
         private gameTimer;
 
         // keys
         private cursors: Phaser.CursorKeys;
+        private attackKey: Phaser.Key;
 
         private hitPlatform: boolean;
+        private playing: boolean;
 
         public create() {
             game.add.sprite(0, 0, 'sky');
@@ -119,7 +115,10 @@ namespace spock {
             this.setupStars();
             this.setupUi();
             this.setupInput();
-            this.gameTimer = new Timer(game, game_time, () => { });
+            this.playing = true;
+            this.gameTimer = new Timer(game_time, () => {
+                this.playing = false;
+            });
 
             this.gameTimer.start();
         }
@@ -131,52 +130,83 @@ namespace spock {
             } else {
                 this.game.debug.text('Client', 1, 16);
             }
+            if (!this.playing) {
+                this.scorePlayer1Text.text = "";
+                this.scorePlayer2Text.text = "";
+                let text;
+                if (this.scorePlayer1 === this.scorePlayer2) {
+                    text = "Draw";
+                } else if (this.scorePlayer1 > this.scorePlayer2) {
+                    text = "You win!";
+                } else {
+                    text = "You lose...";
+                }
+                this.timeLeft.text = text;
+            }
         }
 
         public update() {
-            // あたり判定
-            this.hitPlatform = game.physics.arcade.collide(this.player1, this.platforms);
-            game.physics.arcade.collide(this.player2, this.platforms);
-            game.physics.arcade.collide(this.stars, this.platforms);
+            if (this.playing) {
+                // あたり判定
+                this.hitPlatform = game.physics.arcade.collide(this.player1, this.platforms);
+                game.physics.arcade.collide(this.player2, this.platforms);
+                game.physics.arcade.collide(this.stars, this.platforms);
 
-            game.physics.arcade.overlap(this.player1, this.stars, (_, star) => {
-                star.kill();
-                this.create_star(screen_width * Math.random(), 0);
+                game.physics.arcade.overlap(this.player1, this.stars, (_, star) => {
+                    star.kill();
+                    this.create_star(screen_width * Math.random(), 0);
 
-                this.scorePlayer1 += 10;
-            }, undefined, this);
-            game.physics.arcade.overlap(this.player2, this.stars, (_, star) => {
-                star.kill();
-                this.create_star(screen_width * Math.random(), 0);
+                    this.scorePlayer1 += 10;
+                }, undefined, this);
+                game.physics.arcade.overlap(this.player2, this.stars, (_, star) => {
+                    star.kill();
+                    this.create_star(screen_width * Math.random(), 0);
 
-                this.scorePlayer2 += 10;
-            }, undefined, this);
+                    this.scorePlayer2 += 10;
+                }, undefined, this);
+                game.physics.arcade.overlap(this.player1, this.diamonds2, (_, diamond) => {
+                    diamond.kill();
 
-            this.handleInput();
+                    this.scorePlayer1 -= 5;
+                }, undefined, this);
+                game.physics.arcade.overlap(this.player2, this.diamonds1, (_, diamond) => {
+                    diamond.kill();
+
+                    this.scorePlayer2 -= 5;
+                }, undefined, this);
+
+                this.handleInput();
+
+            }
         }
 
         // 入力処理
         private handleInput() {
-            let action: Action;
+            let action: Array<Action> = new Array();
             if (this.cursors.left.isDown) {
-                action = Action.MoveLeft;
+                action.push(Action.MoveLeft);
             } else if (this.cursors.right.isDown) {
-                action = Action.MoveRight;
+                action.push(Action.MoveRight);
             } else {
-                action = Action.Stop;
+                action.push(Action.Stop);
             }
             if (this.cursors.up.isDown && this.player1.body.touching.down &&
                 this.hitPlatform) {
-                action = Action.Jump;
+                action.push(Action.Jump);
+            }
+            if (this.attackKey.justDown) {
+                action.push(Action.Attack);
             }
 
-            this.handleMove(this.player1, action);
-            client.emitAction(action);
+            action.forEach((a) => {
+                this.handleMove(this.player1, a, true);
+                client.emitAction(a);
+            })
             client.emitPos(this.player1.x, this.player1.y);
         }
 
         // 移動処理
-        private handleMove(player: Phaser.Sprite, action: Action) {
+        private handleMove(player: Phaser.Sprite, action: Action, isMe: boolean) {
             switch (action) {
                 case Action.MoveLeft:
                     player.body.velocity.x = -150;
@@ -189,6 +219,11 @@ namespace spock {
                 case Action.Jump:
                     player.body.velocity.y = -350;
                     break;
+                case Action.Attack:
+                    const diamond = (isMe ? this.diamonds1 : this.diamonds2)
+                        .create(player.x, player.y, 'diamond');
+                    diamond.body.velocity.x = (player.body.velocity.x > 0 ? 1 : -1) * 300;
+                    break;
                 case Action.Stop:
                     player.body.velocity.x = 0;
                     player.animations.stop();
@@ -198,7 +233,7 @@ namespace spock {
         }
 
         public enemyMove(action: Action) {
-            this.handleMove(this.player2, action);
+            this.handleMove(this.player2, action, false);
         }
 
         public enemyPosSet(x: number, y: number) {
@@ -247,8 +282,10 @@ namespace spock {
         private setupStars() {
             this.stars = game.add.group();
             this.stars.enableBody = true;
-            this.diamonds = game.add.group();
-            this.diamonds.enableBody = true;
+            this.diamonds1 = game.add.group();
+            this.diamonds1.enableBody = true;
+            this.diamonds2 = game.add.group();
+            this.diamonds2.enableBody = true;
 
             for (let i = 0; i < 12; i++) {
                 this.create_star(i * 70, 0);
@@ -258,7 +295,7 @@ namespace spock {
         // Uiのセットアップ
         private setupUi() {
             this.scorePlayer1Text = game.add.text(16, 16, 'P1.score:', { fontSize: 32, fill: '#000' });
-            this.scorePlayer2Text = game.add.text(600, 16, 'P2.score:', { fontSize: 32, fill: '#000' });
+            this.scorePlayer2Text = game.add.text(550, 16, 'P2.score:', { fontSize: 32, fill: '#000' });
             this.timeLeft = game.add.text(280, 16, 'TimeLeft:', { fontSize: 32, fill: '#000' });
         }
 
@@ -282,12 +319,13 @@ namespace spock {
         // 操作セットアップ
         private setupInput() {
             this.cursors = game.input.keyboard.createCursorKeys();
+            this.attackKey = game.input.keyboard.addKey(65);
         }
 
         // Uiの更新
         private refreshUi() {
-            this.scorePlayer1Text.text = 'P1.score: ' + this.scorePlayer1;
-            this.scorePlayer2Text.text = 'P2.score: ' + this.scorePlayer2;
+            this.scorePlayer1Text.text = 'You: ' + this.scorePlayer1;
+            this.scorePlayer2Text.text = 'Enemy: ' + this.scorePlayer2;
             this.timeLeft.text = 'TimeLeft: ' + this.gameTimer.text();
         }
     }
@@ -298,14 +336,14 @@ namespace spock {
         private time: number;
         private callback: Function;
 
-        public constructor(game: Phaser.Game, time: number, callback: Function) {
+        public constructor(time: number, callback: Function) {
             this.timer = game.time.create();
             this.time = time;
             this.callback = callback;
         }
 
         public start() {
-            this.timerEvent = this.timer.add(Phaser.Timer.MINUTE * 1 + Phaser.Timer.SECOND * 30, () => {
+            this.timerEvent = this.timer.add(this.time, () => {
                 this.timer.stop();
                 this.callback();
             });
@@ -349,9 +387,10 @@ namespace spock {
                 seedrandom(String(seed), { global: true });
                 matchingState.gameStart()
             });
-            this.socket.on('host', () => matchingState.awareImHost());
+            this.socket.on('host', () => matchingState.isOurHost(true));
             this.socket.on('action', (a: Action) => gamingState.enemyMove(a));
             this.socket.on('mypos', (x: number, y: number) => gamingState.enemyPosSet(x, y));
+            this.socket.on('reset', () => game.state.start('boot', true, false));
         }
     }
 

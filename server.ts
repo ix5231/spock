@@ -7,7 +7,7 @@ import { LinkedList, Set } from "typescript-collections";
 const max_player: number = 2;
 
 class SessionManager {
-    private players: LinkedList<string>;
+    public players: LinkedList<string>;
     private waiting_players: LinkedList<string>;
 
     constructor() {
@@ -17,7 +17,7 @@ class SessionManager {
 
     try_join(player: string): boolean {
         console.log('join');
-        if (this.players.size() >= max_player) { // もういっぱい
+        if (this.ready()) { // もういっぱい
             this.waiting_players.add(player);
             return false;
         } else {
@@ -97,9 +97,11 @@ class Server {
 
             socket.on('disconnect', () => {
                 if (this.sessions.leave(socket.id)) { // 試合中のメンバーが退出
+                    this.io.to(this.sessions.players[0]).emit('reset');
                     const next_player = this.sessions.try_join_waiter();
                     if (next_player) {
                         socket.join('current_player');
+                        this.io.to(this.sessions.players[0]).emit('host');
                         this.io.to(next_player).emit('playing');
                     }
                 }
