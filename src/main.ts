@@ -1,178 +1,294 @@
 import { ENABLE_DISABLE_REGEX } from 'tslint/lib';
 import * as Phaser from 'phaser-ce';
-import * as io from 'socket.io-client'
+import * as io from 'socket.io-client';
+import * as seedrandom from 'seedrandom';
 
 namespace spock {
-    const KEYCODE = {
-       a: 65,
-       two: 98,
-       four: 100,
-       six: 102,
-       eight: 104,
-    };
-
     const screen_width: number = 800;
     const screen_height: number = 600;
 
     const game_time: number = Phaser.Timer.MINUTE * 1 + Phaser.Timer.SECOND * 30;
 
-    let game: Phaser.Game = new Phaser.Game(screen_width, screen_height, Phaser.AUTO, '', { preload: preload, create: create, update: update, render: render});
+    const KEYCODE = {
+        a: 65,
+        two: 98,
+        four: 100,
+        six: 102,
+        eight: 104,
+    };
 
-    let player: Phaser.Sprite;
-    let player2: Phaser.Sprite;
-
-    let scorePlayer1: number = 0;
-    let scorePlayer2: number = 0;
-
-    // group
-    let platforms: Phaser.Group;
-    let stars: Phaser.Group;
-    let diamonds: Phaser.Group;
-
-    let ui;
-    let one_game_timer;
-
-    let cursors: Phaser.CursorKeys;
-    let a, two, four, six, eight;
-
-    function preload() {
-        game.load.image('sky', 'assets/sky.png');
-        game.load.image('ground', 'assets/platform.png');
-        game.load.image('star', 'assets/star.png');
-        game.load.spritesheet('dude', 'assets/dude.png', 32, 48);
-        game.load.spritesheet('baddie', 'assets/baddie.png', 32, 32);
-        game.load.image('diamond', 'assets/diamond.png');
+    enum Action {
+        MoveLeft,
+        MoveRight,
+        Jump,
+        Stop,
     }
 
-    function create() {
-        // 物理
-        game.physics.startSystem(Phaser.Physics.ARCADE);
+    // グローバルな設定
+    class Boot extends Phaser.State {
+        public create() {
+            game.stage.disableVisibilityChange = true;
+            game.physics.startSystem(Phaser.Physics.ARCADE);
 
-        game.add.sprite(0, 0, 'sky');
-
-        setup_field();
-        setup_players();
-        setup_stars();
-        ui = new Ui();
-        setup_input();
-        one_game_timer = new Timer(game, game_time, () => {});
-
-        game.time.events.repeat(Phaser.Timer.SECOND * 2, 10, () =>  {
-            var stars = game.add.group();
-            stars.enableBody = true;
-        }, this);
-
-        // タイマ
-        game.time.events.loop(Phaser.Timer.SECOND, updateCounter, this);
-
-        one_game_timer.start();
-    }
-
-    function render() {
-        ui.refresh();
-    }
-
-    function update() {
-        // あたり判定
-        game.physics.arcade.collide(player, platforms);
-        game.physics.arcade.collide(player2, platforms);
-        game.physics.arcade.collide(stars, platforms);
-
-        game.physics.arcade.overlap(player, stars, (_, star) => {
-            star.kill();
-            create_star(screen_width * Math.random(), 0);
-
-            scorePlayer1 += 10;
-        }, undefined, this);
-        game.physics.arcade.overlap(player2, stars, (_, star) => {
-            star.kill();
-            create_star(screen_width * Math.random(), 0);
-
-            scorePlayer2 += 10;
-        }, undefined, this);
-
-        // 移動
-        player.body.velocity.x = 0;
-        player2.body.velocity.x = 0;
-
-        if (cursors.left.isDown) {
-            player.body.velocity.x = -150;
-
-            player.animations.play('left');
-        }
-        else if (cursors.right.isDown) {
-            player.body.velocity.x = 150;
-
-            player.animations.play('right');
-        }
-        else {
-            player.animations.stop();
-
-            player.frame = 4;
-        }
-
-        if (cursors.up.isDown && player.body.touching.down) {
-            player.body.velocity.y = -350;
-        }
-
-        if (cursors.down.isDown) {
-            player.body.velocity.y = 1000;
-        }
-
-        if(a.isUp)
-        {
-            //var i = 0;
-        }else if(a.isDown)
-        {
-            //if(i == 0)
-            //{
-            let diamond = diamonds.create(player.x, player.y, 'diamond');
-            diamond.body.velocity.x = 300;
-            //i = 1;
-            //}
-        }
-
-
-        if (four.isDown) {
-            player2.body.velocity.x = -150;
-
-            player2.animations.play('left');
-        }
-        else if (six.isDown) {
-            player2.body.velocity.x = 150;
-
-            player2.animations.play('right');
-        }
-        else {
-            player2.animations.stop();
-
-            player2.frame = 1;
-        }
-
-        if (eight.isDown && player2.body.touching.down) {
-            player2.body.velocity.y = -350;
-        }
-
-        if (two.isDown) {
-            player2.body.velocity.y = 1000;
+            game.state.start('load');
         }
     }
 
-    class Ui {
-        private scorePlayer1: Phaser.Text;
-        private scorePlayer2: Phaser.Text;
+    // アセット読み込み
+    class Load extends Phaser.State {
+        public preload() {
+            game.load.image('sky', 'assets/sky.png');
+            game.load.image('ground', 'assets/platform.png');
+            game.load.image('star', 'assets/star.png');
+            game.load.spritesheet('dude', 'assets/dude.png', 32, 48);
+            game.load.spritesheet('baddie', 'assets/baddie.png', 32, 32);
+            game.load.image('diamond', 'assets/diamond.png');
+        }
+
+        public create() {
+            game.state.start('matching');
+        }
+    }
+
+    // マッチング中
+    class Matching extends Phaser.State {
+        private cursors: Phaser.CursorKeys;
+        private isHost: boolean;
+
+        public create() {
+            this.cursors = game.input.keyboard.createCursorKeys();
+            this.isHost = false;
+
+            client.emitMatching();
+        }
+
+        public render() {
+            if (this.isHost) {
+                this.game.debug.text('Hosting...', 1, 16);
+            } else {
+                this.game.debug.text('Matching...', 1, 16);
+            }
+        }
+
+        public gameStart() {
+            game.state.start('gaming');
+        }
+
+        public awareImHost() {
+            this.isHost = true;
+        }
+
+        public amIHost(): boolean {
+            return this.isHost;
+        }
+    }
+
+    // 試合中
+    class Gaming extends Phaser.State {
+        // players
+        private player1: Phaser.Sprite;
+        private player2: Phaser.Sprite;
+
+        // scores
+        private scorePlayer1: number = 0;
+        private scorePlayer2: number = 0;
+
+        // texts
+        private scorePlayer1Text: Phaser.Text;
+        private scorePlayer2Text: Phaser.Text;
         private timeLeft: Phaser.Text;
 
-        public constructor() {
-            this.scorePlayer1 = game.add.text(16, 16, 'P1.score:', { fontSize: 32, fill: '#000' });
-            this.scorePlayer2 = game.add.text(600, 16, 'P2.score:', { fontSize: 32, fill: '#000' });
+        // groups
+        private platforms: Phaser.Group;
+        private stars: Phaser.Group;
+        private diamonds: Phaser.Group;
+
+        // timers
+        private gameTimer;
+
+        // keys
+        private cursors: Phaser.CursorKeys;
+
+        private hitPlatform: boolean;
+
+        public create() {
+            game.add.sprite(0, 0, 'sky');
+
+            this.setupField();
+            this.setupPlayers();
+            this.setupStars();
+            this.setupUi();
+            this.setupInput();
+            this.gameTimer = new Timer(game, game_time, () => { });
+
+            this.gameTimer.start();
+        }
+
+        public render() {
+            this.refreshUi();
+            if (matchingState.amIHost()) {
+                this.game.debug.text('Host', 1, 16);
+            } else {
+                this.game.debug.text('Client', 1, 16);
+            }
+        }
+
+        public update() {
+            // あたり判定
+            this.hitPlatform = game.physics.arcade.collide(this.player1, this.platforms);
+            game.physics.arcade.collide(this.player2, this.platforms);
+            game.physics.arcade.collide(this.stars, this.platforms);
+
+            game.physics.arcade.overlap(this.player1, this.stars, (_, star) => {
+                star.kill();
+                this.create_star(screen_width * Math.random(), 0);
+
+                this.scorePlayer1 += 10;
+            }, undefined, this);
+            game.physics.arcade.overlap(this.player2, this.stars, (_, star) => {
+                star.kill();
+                this.create_star(screen_width * Math.random(), 0);
+
+                this.scorePlayer2 += 10;
+            }, undefined, this);
+
+            this.handleInput();
+        }
+
+        // 入力処理
+        private handleInput() {
+            let action: Action;
+            if (this.cursors.left.isDown) {
+                action = Action.MoveLeft;
+            } else if (this.cursors.right.isDown) {
+                action = Action.MoveRight;
+            } else {
+                action = Action.Stop;
+            }
+            if (this.cursors.up.isDown && this.player1.body.touching.down &&
+                this.hitPlatform) {
+                action = Action.Jump;
+            }
+
+            this.handleMove(this.player1, action);
+            client.emitAction(action);
+            client.emitPos(this.player1.x, this.player1.y);
+        }
+
+        // 移動処理
+        private handleMove(player: Phaser.Sprite, action: Action) {
+            switch (action) {
+                case Action.MoveLeft:
+                    player.body.velocity.x = -150;
+                    player.animations.play('left');
+                    break;
+                case Action.MoveRight:
+                    player.body.velocity.x = 150;
+                    player.animations.play('right');
+                    break;
+                case Action.Jump:
+                    player.body.velocity.y = -350;
+                    break;
+                case Action.Stop:
+                    player.body.velocity.x = 0;
+                    player.animations.stop();
+                    player.frame = 4;
+                    break;
+            }
+        }
+
+        public enemyMove(action: Action) {
+            this.handleMove(this.player2, action);
+        }
+
+        public enemyPosSet(x: number, y: number) {
+            this.player2.x = x;
+            this.player2.y = y;
+        }
+
+        // プレイヤー追加
+        private setupPlayers() {
+            this.player1 = game.add.sprite(32, game.world.height - 150, 'dude');
+            game.physics.arcade.enable(this.player1);
+
+            this.player1.body.bounce.y = 0
+            this.player1.body.gravity.y = 300
+            this.player1.body.collideWorldBounds = true
+
+            this.player1.animations.add('left', [0, 1, 2, 3], 10, true);
+            this.player1.animations.add('right', [5, 6, 7, 8], 10, true);
+
+            this.player2 = game.add.sprite(700, game.world.height - 150, 'baddie');
+            game.physics.arcade.enable(this.player2);
+
+            this.player2.body.bounce.y = 0
+            this.player2.body.gravity.y = 300
+            this.player2.body.collideWorldBounds = true
+
+            this.player2.animations.add('left', [0, 1], 10, true);
+            this.player2.animations.add('right', [2, 3], 10, true);
+
+            // クライアント側はbuddy(player2)を操作
+            if (matchingState.amIHost() == false) {
+                let tmp = this.player1;
+                this.player1 = this.player2;
+                this.player2 = tmp;
+            }
+        }
+
+        // 星追加
+        private create_star(x: number, y: number) {
+            const star = this.stars.create(x, y, 'star');
+            star.body.gravity.y = 300;
+            star.body.bounce.y = 0.7 + Math.random() * 0.2;
+        }
+
+        // 初期星追加
+        private setupStars() {
+            this.stars = game.add.group();
+            this.stars.enableBody = true;
+            this.diamonds = game.add.group();
+            this.diamonds.enableBody = true;
+
+            for (let i = 0; i < 12; i++) {
+                this.create_star(i * 70, 0);
+            }
+        }
+
+        // Uiのセットアップ
+        private setupUi() {
+            this.scorePlayer1Text = game.add.text(16, 16, 'P1.score:', { fontSize: 32, fill: '#000' });
+            this.scorePlayer2Text = game.add.text(600, 16, 'P2.score:', { fontSize: 32, fill: '#000' });
             this.timeLeft = game.add.text(280, 16, 'TimeLeft:', { fontSize: 32, fill: '#000' });
         }
 
-        public refresh() {
-            this.scorePlayer1.text = 'P1.score: ' + scorePlayer1;
-            this.scorePlayer2.text = 'P2.score: ' + scorePlayer2;
-            this.timeLeft.text = 'TimeLeft: ' + one_game_timer.text();
+        // フィールド作成
+        private setupField() {
+            // 足場グループ
+            this.platforms = game.add.group();
+            this.platforms.enableBody = true;
+
+            // 足場生成
+            const ground = this.platforms.create(0, game.world.height - 64, 'ground');
+            ground.scale.setTo(2, 2);
+            ground.body.immovable = true;
+
+            const ledge1 = this.platforms.create(400, 400, 'ground');
+            ledge1.body.immovable = true;
+            const ledge2 = this.platforms.create(-150, 250, 'ground');
+            ledge2.body.immovable = true;
+        }
+
+        // 操作セットアップ
+        private setupInput() {
+            this.cursors = game.input.keyboard.createCursorKeys();
+        }
+
+        // Uiの更新
+        private refreshUi() {
+            this.scorePlayer1Text.text = 'P1.score: ' + this.scorePlayer1;
+            this.scorePlayer2Text.text = 'P2.score: ' + this.scorePlayer2;
+            this.timeLeft.text = 'TimeLeft: ' + this.gameTimer.text();
         }
     }
 
@@ -201,89 +317,53 @@ namespace spock {
         }
 
         private formatTime(s: number): string {
-            let minutes = Math.floor(s / 60);
-            let seconds = (s - minutes * 60);
-            return String("0" + minutes).substr(-2) + ":" + String("0" + seconds).substr(-2);   
+            const minutes = Math.floor(s / 60);
+            const seconds = (s - minutes * 60);
+            return String('0' + minutes).substr(-2) + ':' + String('0' + seconds).substr(-2);
         }
     }
 
-    // プレイヤー追加
-    function setup_players() {
-        player = game.add.sprite(32, game.world.height - 150, 'dude');
-        game.physics.arcade.enable(player);
+    class Client {
+        private socket: io.Socket;
 
-        player.body.bounce.y = 0
-        player.body.gravity.y = 300
-        player.body.collideWorldBounds = true
+        constructor() {
+            this.socket = io.connect();
 
-        player.animations.add('left', [0, 1, 2, 3], 10, true);
-        player.animations.add('right', [5, 6, 7, 8], 10, true);
+            this.registerHandlers();
+        }
 
-        player2 = game.add.sprite(700, game.world.height - 150, 'baddie');
-        game.physics.arcade.enable(player2);
+        public emitMatching() {
+            this.socket.emit('matching');
+        }
 
-        player2.body.bounce.y = 0
-        player2.body.gravity.y = 300
-        player2.body.collideWorldBounds = true
+        public emitAction(action: Action) {
+            this.socket.emit('action', action);
+        }
 
-        player2.animations.add('left', [0, 1], 10, true);
-        player2.animations.add('right', [2, 3], 10, true);
-    }
+        public emitPos(x: number, y: number) {
+            this.socket.emit('mypos', x, y);
+        }
 
-    // 星追加
-    function create_star(x: number, y: number) {
-        let star = stars.create(x, y, 'star');
-        star.body.gravity.y = 300;
-        star.body.bounce.y = 0.7 + Math.random() * 0.2;
-    }
-
-    // 初期星追加
-    function setup_stars() {
-        stars = game.add.group();
-        stars.enableBody = true;
-        diamonds = game.add.group();
-        diamonds.enableBody = true;
-
-        for (let i = 0; i < 12; i++) {
-            create_star(i * 70, 0);
+        private registerHandlers() {
+            this.socket.on('playing', (seed: number) => {
+                seedrandom(String(seed), { global: true });
+                matchingState.gameStart()
+            });
+            this.socket.on('host', () => matchingState.awareImHost());
+            this.socket.on('action', (a: Action) => gamingState.enemyMove(a));
+            this.socket.on('mypos', (x: number, y: number) => gamingState.enemyPosSet(x, y));
         }
     }
 
-    // フィールド作成
-    function setup_field() {
-        // 足場グループ
-        platforms = game.add.group();
-        platforms.enableBody = true;
+    const game: Phaser.Game = new Phaser.Game(screen_width, screen_height, Phaser.AUTO, '');
+    const matchingState: Matching = new Matching();
+    const gamingState: Gaming = new Gaming();
+    const client = new Client();
 
-        // 足場生成
-        let ground = platforms.create(0, game.world.height - 64, 'ground');
-        ground.scale.setTo(2, 2);
-        ground.body.immovable = true;
+    game.state.add('boot', new Boot());
+    game.state.add('load', new Load());
+    game.state.add('matching', matchingState);
+    game.state.add('gaming', gamingState);
 
-        let ledge = platforms.create(400, 400, 'ground');
-        ledge.body.immovable = true;
-        ledge = platforms.create(-150, 250, 'ground');
-        ledge.body.immovable = true;
-    }
-
-    // 操作セットアップ
-    function setup_input() {
-        cursors = game.input.keyboard.createCursorKeys();
-        a = game.input.keyboard.addKey(KEYCODE.a);
-        two = game.input.keyboard.addKey(KEYCODE.two);
-        four = game.input.keyboard.addKey(KEYCODE.four);
-        six = game.input.keyboard.addKey(KEYCODE.six);
-        eight = game.input.keyboard.addKey(KEYCODE.eight);
-    }
-
-    function updateCounter(){
-        /*var counter ;
-          counter++;
-          setText.text('Counter: ' + counter);*/
-    }
-
-    let socket = io.connect();
-    socket.emit('matching');
-
-    socket.on('playing', () => console.log('Start'));
+    game.state.start('boot');
 }
