@@ -9,11 +9,11 @@ namespace spock {
     const game_time: number = Phaser.Timer.MINUTE * 1 + Phaser.Timer.SECOND * 30;
 
     const KEYCODE = {
-       a: 65,
-       two: 98,
-       four: 100,
-       six: 102,
-       eight: 104,
+        a: 65,
+        two: 98,
+        four: 100,
+        six: 102,
+        eight: 104,
     };
 
     enum Action {
@@ -52,19 +52,33 @@ namespace spock {
     // マッチング中
     class Matching extends Phaser.State {
         private cursors: Phaser.CursorKeys;
+        private isHost: boolean;
 
         public create() {
             this.cursors = game.input.keyboard.createCursorKeys();
+            this.isHost = false;
 
             client.emitMatching();
         }
 
         public render() {
-            this.game.debug.text("Matching...", 1, 16);
+            if (this.isHost) {
+                this.game.debug.text('Hosting...', 1, 16);
+            } else {
+                this.game.debug.text('Matching...', 1, 16);
+            }
         }
 
         public gameStart() {
             game.state.start('gaming');
+        }
+
+        public awareImHost() {
+            this.isHost = true;
+        }
+
+        public amIHost(): boolean {
+            return this.isHost;
         }
     }
 
@@ -102,13 +116,18 @@ namespace spock {
             this.setupStars();
             this.setupUi();
             this.setupInput();
-            this.gameTimer = new Timer(game, game_time, () => {});
+            this.gameTimer = new Timer(game, game_time, () => { });
 
             this.gameTimer.start();
         }
 
         public render() {
             this.refreshUi();
+            if (matchingState.amIHost()) {
+                this.game.debug.text('Host', 1, 16);
+            } else {
+                this.game.debug.text('Client', 1, 16);
+            }
         }
 
         public update() {
@@ -135,7 +154,7 @@ namespace spock {
 
         // 入力処理
         private handleInput() {
-            let action: Action | undefined = undefined;
+            let action: Action;
             if (this.cursors.left.isDown) {
                 action = Action.MoveLeft;
             } else if (this.cursors.right.isDown) {
@@ -147,21 +166,13 @@ namespace spock {
                 action = Action.Jump;
             }
 
-            if(action != undefined){
-                this.handleMove(this.player1, action);
-                if(this.prevAction != action) {
-                    console.log(action);
-                    client.emitAction(action);
-                    this.prevAction = action;
-                }
-            }
+            this.handleMove(this.player1, action);
+            client.emitAction(action);
         }
-
-        private prevAction: Action = Action.Stop;
 
         // 移動処理
         private handleMove(player: Phaser.Sprite, action: Action) {
-            switch(action) {
+            switch (action) {
                 case Action.MoveLeft:
                     player.body.velocity.x = -150;
                     player.animations.play('left');
@@ -206,6 +217,13 @@ namespace spock {
 
             this.player2.animations.add('left', [0, 1], 10, true);
             this.player2.animations.add('right', [2, 3], 10, true);
+
+            // クライアント側はbuddy(player2)を操作
+            if (matchingState.amIHost() == false) {
+                let tmp = this.player1;
+                this.player1 = this.player2;
+                this.player2 = tmp;
+            }
         }
 
         // 星追加
@@ -291,7 +309,7 @@ namespace spock {
         private formatTime(s: number): string {
             const minutes = Math.floor(s / 60);
             const seconds = (s - minutes * 60);
-            return String("0" + minutes).substr(-2) + ":" + String("0" + seconds).substr(-2);   
+            return String('0' + minutes).substr(-2) + ':' + String('0' + seconds).substr(-2);
         }
     }
 
@@ -309,28 +327,13 @@ namespace spock {
         }
 
         public emitAction(action: Action) {
-            switch(action) {
-                case Action.MoveLeft:
-                    this.socket.emit('moveleft');
-                    break;
-                case Action.MoveRight:
-                    this.socket.emit('moveright');
-                    break;
-                case Action.Jump:
-                    this.socket.emit('jump');
-                    break;
-                case Action.Stop:
-                    this.socket.emit('stop');
-                    break;
-            }
+            this.socket.emit('action', action);
         }
 
         private registerHandlers() {
             this.socket.on('playing', () => matchingState.gameStart());
-            this.socket.on('moveleft', () => gamingState.enemyMove(Action.MoveLeft));
-            this.socket.on('moveright', () => gamingState.enemyMove(Action.MoveRight));
-            this.socket.on('jump', () => gamingState.enemyMove(Action.Jump));
-            this.socket.on('stop', function() { gamingState.enemyMove(Action.Stop)});
+            this.socket.on('host', () => matchingState.awareImHost());
+            this.socket.on('action', (a: Action) => gamingState.enemyMove(a));
         }
     }
 

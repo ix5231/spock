@@ -2,7 +2,7 @@ import * as path from "path";
 import * as Http from "http";
 import * as express from "express";
 import * as socketIo from "socket.io";
-import {LinkedList, Set} from "typescript-collections";
+import { LinkedList, Set } from "typescript-collections";
 
 const max_player: number = 2;
 
@@ -17,7 +17,7 @@ class SessionManager {
 
     try_join(player: string): boolean {
         console.log('join');
-        if(this.players.size() >= max_player) { // ‚à‚¤‚¢‚Á‚Ï‚¢
+        if (this.players.size() >= max_player) { // ã‚‚ã†ã„ã£ã±ã„
             this.waiting_players.add(player);
             return false;
         } else {
@@ -27,7 +27,7 @@ class SessionManager {
     }
 
     leave(player: string): string | undefined {
-        if(this.players.remove(player)) {
+        if (this.players.remove(player)) {
             return player;
         } else if (this.waiting_players.remove(player)) {
             return undefined;
@@ -40,7 +40,7 @@ class SessionManager {
 
     try_join_waiter(): string | undefined {
         const next = this.waiting_players.removeElementAtIndex(0);
-        if(next) { // ‘Ò‚¿l‚ª‚¢‚½ê‡
+        if (next) { // å¾…ã¡äººãŒã„ãŸå ´åˆ
             this.players.add(next);
             return next;
         }
@@ -81,23 +81,22 @@ class Server {
     socketOpen() {
         this.io.on('connection', (socket) => {
             socket.on('matching', () => {
-                if(this.sessions.try_join(socket.id)) { // ‡‰Â”\ó‘Ô
+                if (this.sessions.try_join(socket.id)) { // è©¦åˆå¯èƒ½çŠ¶æ…‹
                     socket.join('current_player');
-                    if(this.sessions.ready()) {
+                    if (this.sessions.ready()) {
                         this.io.to('current_player').emit('playing');
+                    } else {
+                        this.io.to(socket.id).emit('host');
                     }
                 }
             });
 
-            socket.on('moveleft', () => socket.broadcast.to('current_player').emit('moveleft'));
-            socket.on('moveright', () => socket.broadcast.to('current_player').emit('moveright'));
-            socket.on('jump', () => socket.broadcast.to('current_player').emit('jump'));
-            socket.on('stop', () => socket.broadcast.to('current_player').emit('stop'));
+            socket.on('action', (a) => socket.broadcast.to('current_player').emit('action', a));
 
             socket.on('disconnect', () => {
-                if(this.sessions.leave(socket.id)) { // ‡’†‚Ìƒƒ“ƒo[‚ª‘Şo
+                if (this.sessions.leave(socket.id)) { // è©¦åˆä¸­ã®ãƒ¡ãƒ³ãƒãƒ¼ãŒé€€å‡º
                     const next_player = this.sessions.try_join_waiter();
-                    if(next_player) {
+                    if (next_player) {
                         socket.join('current_player');
                         this.io.to(next_player).emit('playing');
                     }
