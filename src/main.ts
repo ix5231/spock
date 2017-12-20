@@ -263,7 +263,7 @@ namespace spock {
             this.player2.animations.add('left', [0, 1], 10, true);
             this.player2.animations.add('right', [2, 3], 10, true);
 
-            // クライアント側はbuddy(player2)を操作
+            // クライアント側はbaddie(player2)を操作
             if (matchingState.amIHost() == false) {
                 let tmp = this.player1;
                 this.player1 = this.player2;
