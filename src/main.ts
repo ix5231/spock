@@ -45,11 +45,9 @@ namespace spock {
 
     // マッチング中
     class Matching extends Phaser.State {
-        private cursors: Phaser.CursorKeys;
         private isHost: boolean;
 
         public create() {
-            this.cursors = game.input.keyboard.createCursorKeys();
             this.isHost = false;
 
             client.emitMatching();
@@ -83,8 +81,8 @@ namespace spock {
         private player2: Phaser.Sprite;
 
         // scores
-        private scorePlayer1: number = 0;
-        private scorePlayer2: number = 0;
+        private scorePlayer1: number;
+        private scorePlayer2: number;
 
         // texts
         private scorePlayer1Text: Phaser.Text;
@@ -252,6 +250,8 @@ namespace spock {
 
             this.player1.animations.add('left', [0, 1, 2, 3], 10, true);
             this.player1.animations.add('right', [5, 6, 7, 8], 10, true);
+
+            this.scorePlayer1 = 0;
           
             this.player2 = game.add.sprite(700, game.world.height - 150, 'baddie');
             game.physics.arcade.enable(this.player2);
@@ -262,6 +262,8 @@ namespace spock {
 
             this.player2.animations.add('left', [0, 1], 10, true);
             this.player2.animations.add('right', [2, 3], 10, true);
+
+            this.scorePlayer2 = 0;
 
             // クライアント側はbuddy(player2)を操作
             if (matchingState.amIHost() == false) {
@@ -385,7 +387,7 @@ namespace spock {
         private registerHandlers() {
             this.socket.on('playing', (seed: number) => {
                 seedrandom(String(seed), { global: true });
-                matchingState.gameStart()
+                matchingState.gameStart();
             });
             this.socket.on('host', () => matchingState.isOurHost(true));
             this.socket.on('action', (a: Action) => gamingState.enemyMove(a));
