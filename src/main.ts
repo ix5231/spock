@@ -391,9 +391,6 @@ namespace spock {
             this.socket.on('action', (a: Action) => gamingState.enemyMove(a));
             this.socket.on('mypos', (x: number, y: number) => gamingState.enemyPosSet(x, y));
             this.socket.on('reset', () => game.state.start('boot', true, false));
-            this.socket.on('host', () => matchingState.awareImHost());
-            this.socket.on('action', (a: Action) => gamingState.enemyMove(a));
-            this.socket.on('mypos', (x: number, y: number) => gamingState.enemyPosSet(x, y));
         }
     }
 
