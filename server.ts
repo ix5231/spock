@@ -2,47 +2,51 @@ import * as path from "path";
 import * as Http from "http";
 import * as express from "express";
 import * as socketIo from "socket.io";
-import { LinkedList, Set } from "typescript-collections";
 
 const max_player: number = 2;
 
 class SessionManager {
-    public players: LinkedList<string>;
-    private waiting_players: LinkedList<string>;
+    public players: Array<string>;
+    private waiting_players: Array<string>;
 
     constructor() {
-        this.players = new LinkedList();
-        this.waiting_players = new LinkedList();
+        this.players = new Array();
+        this.waiting_players = new Array();
     }
 
+    // 入室を試みる
+    // 成功でtrue, 失敗でfalseを返す
     try_join(player: string): boolean {
-        console.log('join');
+        console.log('TRACE: Try join');
         if (this.ready()) { // もういっぱい
-            this.waiting_players.add(player);
+            this.waiting_players.push(player); // 待ってもらう
             return false;
         } else {
-            this.players.add(player);
+            this.players.push(player);
             return true;
         }
     }
 
     leave(player: string): string | undefined {
-        if (this.players.remove(player)) {
+        //if (this.players.remove(player, (a, b) => a === b)) {
+        if (this.players.splice(this.players.indexOf(player), 1)) {
+            console.log('TRACE: removed player from battle')
             return player;
-        } else if (this.waiting_players.remove(player)) {
+        } else if (this.waiting_players.splice(this.players.indexOf(player), 1)) {
+            console.log('TRACE: removed player from wait queue')
             return undefined;
         } else {
-            throw new Error("No such player")
+            throw new Error("ERROR: No such player")
         }
     }
 
-    ready(): boolean { return this.players.size() === 2; }
+    ready(): boolean { return this.players.length === 2; }
 
     try_join_waiter(): string | undefined {
-        const next = this.waiting_players.removeElementAtIndex(0);
-        if (next) { // 待ち人がいた場合
-            this.players.add(next);
-            return next;
+        const next = this.waiting_players.splice(0, 1);
+        if (next != []) { // 待ち人がいた場合
+            this.players.push(next[0]);
+            return next[0];
         }
         return undefined;
     }
@@ -97,7 +101,9 @@ class Server {
 
             socket.on('disconnect', () => {
                 if (this.sessions.leave(socket.id)) { // 試合中のメンバーが退出
+                    console.log('TRACE: Member left')
                     this.io.to(this.sessions.players[0]).emit('reset');
+                    console.log('TRACE: Send reset to: ', this.sessions.players[0])
 
                     const next_player = this.sessions.try_join_waiter();
                     if (next_player) {
