@@ -21,7 +21,6 @@ namespace spock {
     class Boot extends Phaser.State {
         public create() {
             game.stage.disableVisibilityChange = true;
-            game.physics.startSystem(Phaser.Physics.ARCADE);
 
             game.state.start('load');
         }
@@ -105,8 +104,12 @@ namespace spock {
         private hitPlatform: boolean;
         private playing: boolean;
 
+        // flag determines reset next tick
+        private resetNext: boolean;
+
         public create() {
             game.add.sprite(0, 0, 'sky');
+            game.physics.startSystem(Phaser.Physics.ARCADE);
 
             this.setupField();
             this.setupPlayers();
@@ -144,6 +147,10 @@ namespace spock {
         }
 
         public update() {
+            if (this.resetNext) {
+                this.reset()
+                console.log('TRACE: Reset completed')
+            }
             if (this.playing) {
                 // あたり判定
                 this.hitPlatform = game.physics.arcade.collide(this.player1, this.platforms);
@@ -174,8 +181,13 @@ namespace spock {
                 }, undefined, this);
 
                 this.handleInput();
-
             }
+        }
+
+        // 次回アップデート時リセットを予約
+        public reserveReset() {
+            console.log('TRACE: Reset reserved')
+            this.resetNext = true
         }
 
         // 入力処理
@@ -330,6 +342,27 @@ namespace spock {
             this.scorePlayer2Text.text = 'Enemy: ' + this.scorePlayer2;
             this.timeLeft.text = 'TimeLeft: ' + this.gameTimer.text();
         }
+
+        // リセットする
+        private reset() {
+            this.player1.destroy();
+            this.player2.destroy();
+            this.setupPlayers();
+
+            this.stars.destroy();
+            this.diamonds1.destroy();
+            this.diamonds2.destroy();
+            this.setupStars();
+
+            this.playing = true;
+            this.gameTimer = new Timer(game_time, () => {
+                this.playing = false;
+            });
+
+            this.gameTimer.start();
+
+            this.resetNext = false;
+        }
     }
 
     class Timer {
@@ -391,7 +424,7 @@ namespace spock {
             this.socket.on('host', () => matchingState.isOurHost(true));
             this.socket.on('action', (a: Action) => gamingState.enemyMove(a));
             this.socket.on('mypos', (x: number, y: number) => gamingState.enemyPosSet(x, y));
-            this.socket.on('reset', () => game.state.start('boot', true, false));
+            this.socket.on('reset', () => { console.log("reset"); gamingState.reserveReset() });
         }
     }
 
