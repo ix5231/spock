@@ -19,7 +19,7 @@ namespace spock {
 
     // グローバルな設定
     class Boot extends Phaser.State {
-        public create() {
+        create(): void {
             game.stage.disableVisibilityChange = true;
 
             game.state.start('load');
@@ -28,7 +28,7 @@ namespace spock {
 
     // アセット読み込み
     class Load extends Phaser.State {
-        public preload() {
+        preload(): void {
             game.load.image('sky', 'assets/sky.png');
             game.load.image('ground', 'assets/platform.png');
             game.load.image('star', 'assets/star.png');
@@ -37,39 +37,27 @@ namespace spock {
             game.load.image('diamond', 'assets/diamond.png');
         }
 
-        public create() {
+        create(): void {
             game.state.start('matching');
         }
     }
 
     // マッチング中
     class Matching extends Phaser.State {
-        private isHost: boolean;
-
-        public create() {
-            this.isHost = false;
-
+        create(): void {
             client.emitMatching();
         }
 
-        public render() {
-            if (this.isHost) {
+        render(): void {
+            if (client.isHost) {
                 this.game.debug.text('Hosting...', 1, 16);
             } else {
                 this.game.debug.text('Matching...', 1, 16);
             }
         }
 
-        public gameStart() {
+        gameStart(): void {
             game.state.start('gaming');
-        }
-
-        public isOurHost(h: boolean) {
-            this.isHost = h;
-        }
-
-        public amIHost(): boolean {
-            return this.isHost;
         }
     }
 
@@ -101,13 +89,12 @@ namespace spock {
         private cursors: Phaser.CursorKeys;
         private attackKey: Phaser.Key;
 
-        private hitPlatform: boolean;
         private playing: boolean;
 
         // flag determines reset next tick
         private resetNext: boolean;
 
-        public create() {
+        create(): void {
             game.add.sprite(0, 0, 'sky');
             game.physics.startSystem(Phaser.Physics.ARCADE);
 
@@ -124,9 +111,9 @@ namespace spock {
             this.gameTimer.start();
         }
 
-        public render() {
+        render(): void {
             this.refreshUi();
-            if (matchingState.amIHost()) {
+            if (client.isHost) {
                 this.game.debug.text('Host', 1, 16);
             } else {
                 this.game.debug.text('Client', 1, 16);
@@ -146,52 +133,56 @@ namespace spock {
             }
         }
 
-        public update() {
+        update(): void {
             if (this.resetNext) {
                 this.reset()
                 console.log('TRACE: Reset completed')
             }
             if (this.playing) {
-                // あたり判定
-                this.hitPlatform = game.physics.arcade.collide(this.player1, this.platforms);
-                game.physics.arcade.collide(this.player2, this.platforms);
-                game.physics.arcade.collide(this.stars, this.platforms);
-
-                game.physics.arcade.overlap(this.player1, this.stars, (_, star) => {
-                    star.kill();
-                    this.create_star(screen_width * Math.random(), 0);
-
-                    this.scorePlayer1 += 10;
-                }, undefined, this);
-                game.physics.arcade.overlap(this.player2, this.stars, (_, star) => {
-                    star.kill();
-                    this.create_star(screen_width * Math.random(), 0);
-
-                    this.scorePlayer2 += 10;
-                }, undefined, this);
-                game.physics.arcade.overlap(this.player1, this.diamonds2, (_, diamond) => {
-                    diamond.kill();
-
-                    this.scorePlayer1 -= 5;
-                }, undefined, this);
-                game.physics.arcade.overlap(this.player2, this.diamonds1, (_, diamond) => {
-                    diamond.kill();
-
-                    this.scorePlayer2 -= 5;
-                }, undefined, this);
-
-                this.handleInput();
+                this.handleInput(this.handleCollision());
             }
         }
 
         // 次回アップデート時リセットを予約
-        public reserveReset() {
+        reserveReset(): void {
             console.log('TRACE: Reset reserved')
             this.resetNext = true
         }
 
+        // あたり判定
+        private handleCollision(): boolean {
+            const hitPlatform = game.physics.arcade.collide(this.player1, this.platforms);
+            game.physics.arcade.collide(this.player2, this.platforms);
+            game.physics.arcade.collide(this.stars, this.platforms);
+
+            game.physics.arcade.overlap(this.player1, this.stars, (_, star) => {
+                star.kill();
+                this.create_star(screen_width * Math.random(), 0);
+
+                this.scorePlayer1 += 10;
+            }, undefined, this);
+            game.physics.arcade.overlap(this.player2, this.stars, (_, star) => {
+                star.kill();
+                this.create_star(screen_width * Math.random(), 0);
+
+                this.scorePlayer2 += 10;
+            }, undefined, this);
+            game.physics.arcade.overlap(this.player1, this.diamonds2, (_, diamond) => {
+                diamond.kill();
+
+                this.scorePlayer1 -= 5;
+            }, undefined, this);
+            game.physics.arcade.overlap(this.player2, this.diamonds1, (_, diamond) => {
+                diamond.kill();
+
+                this.scorePlayer2 -= 5;
+            }, undefined, this);
+
+            return hitPlatform;
+        }
+
         // 入力処理
-        private handleInput() {
+        private handleInput(hitPlatform: boolean): void {
             let action: Array<Action> = new Array();
             if (this.cursors.left.isDown) {
                 action.push(Action.MoveLeft);
@@ -201,7 +192,7 @@ namespace spock {
                 action.push(Action.Stop);
             }
             if (this.cursors.up.isDown && this.player1.body.touching.down &&
-                this.hitPlatform) {
+                hitPlatform) {
                 action.push(Action.Jump);
             }
             if (this.attackKey.justDown) {
@@ -216,7 +207,7 @@ namespace spock {
         }
 
         // 移動処理
-        private handleMove(player: Phaser.Sprite, action: Action, isMe: boolean) {
+        private handleMove(player: Phaser.Sprite, action: Action, isMe: boolean): void {
             switch (action) {
                 case Action.MoveLeft:
                     player.body.velocity.x = -150;
@@ -242,17 +233,17 @@ namespace spock {
             }
         }
 
-        public enemyMove(action: Action) {
+        enemyMove(action: Action): void {
             this.handleMove(this.player2, action, false);
         }
 
-        public enemyPosSet(x: number, y: number) {
+        enemyPosSet(x: number, y: number): void {
             this.player2.x = x;
             this.player2.y = y;
         }
 
         // プレイヤー追加
-        private setupPlayers() {
+        private setupPlayers(): void {
             this.player1 = game.add.sprite(32, game.world.height - 150, 'dude');
             game.physics.arcade.enable(this.player1);
 
@@ -277,7 +268,7 @@ namespace spock {
 
             this.scorePlayer2 = 0;
             // クライアント側はbaddie(player2)を操作
-            if (matchingState.amIHost() == false) {
+            if (client.isHost) {
                 let tmp = this.player1;
                 this.player1 = this.player2;
                 this.player2 = tmp;
@@ -285,14 +276,14 @@ namespace spock {
         }
 
         // 星追加
-        private create_star(x: number, y: number) {
+        private create_star(x: number, y: number): void {
             const star = this.stars.create(x, y, 'star');
             star.body.gravity.y = 300;
             star.body.bounce.y = 0.7 + Math.random() * 0.2;
         }
 
         // 初期星追加
-        private setupStars() {
+        private setupStars(): void {
             this.stars = game.add.group();
             this.stars.enableBody = true;
           
@@ -307,14 +298,14 @@ namespace spock {
         }
 
         // Uiのセットアップ
-        private setupUi() {
+        private setupUi(): void {
             this.scorePlayer1Text = game.add.text(16, 16, 'P1.score:', { fontSize: 32, fill: '#000' });
             this.scorePlayer2Text = game.add.text(550, 16, 'P2.score:', { fontSize: 32, fill: '#000' });
             this.timeLeft = game.add.text(280, 16, 'TimeLeft:', { fontSize: 32, fill: '#000' });
         }
 
         // フィールド作成
-        private setupField() {
+        private setupField(): void {
             // 足場グループ
             this.platforms = game.add.group();
             this.platforms.enableBody = true;
@@ -331,20 +322,20 @@ namespace spock {
         }
 
         // 操作セットアップ
-        private setupInput() {
+        private setupInput(): void {
             this.cursors = game.input.keyboard.createCursorKeys();
             this.attackKey = game.input.keyboard.addKey(65);
         }
 
         // Uiの更新
-        private refreshUi() {
+        private refreshUi(): void {
             this.scorePlayer1Text.text = 'You: ' + this.scorePlayer1;
             this.scorePlayer2Text.text = 'Enemy: ' + this.scorePlayer2;
             this.timeLeft.text = 'TimeLeft: ' + this.gameTimer.text();
         }
 
         // リセットする
-        private reset() {
+        private reset(): void {
             this.player1.destroy();
             this.player2.destroy();
             this.setupPlayers();
@@ -371,13 +362,13 @@ namespace spock {
         private time: number;
         private callback: Function;
 
-        public constructor(time: number, callback: Function) {
+        constructor(time: number, callback: Function) {
             this.timer = game.time.create();
             this.time = time;
             this.callback = callback;
         }
 
-        public start() {
+        start(): void {
             this.timerEvent = this.timer.add(this.time, () => {
                 this.timer.stop();
                 this.callback();
@@ -385,7 +376,7 @@ namespace spock {
             this.timer.start();
         }
 
-        public text(): string {
+        text(): string {
             return this.formatTime(Math.round((this.timerEvent.delay - this.timer.ms) / 1000));
         }
 
@@ -398,30 +389,36 @@ namespace spock {
 
     class Client {
         private socket: io.Socket;
+        private host: boolean;
 
         constructor() {
             this.socket = io.connect();
+            this.host = false;
             this.registerHandlers();
         }
 
-        public emitMatching() {
+        emitMatching(): void {
             this.socket.emit('matching');
         }
 
-        public emitAction(action: Action) {
+        emitAction(action: Action): void {
             this.socket.emit('action', action);
         }
 
-        public emitPos(x: number, y: number) {
+        emitPos(x: number, y: number): void {
             this.socket.emit('mypos', x, y);
         }
 
-        private registerHandlers() {
+        get isHost(): boolean {
+            return this.host;
+        }
+
+        private registerHandlers(): void {
             this.socket.on('playing', (seed: number) => {
                 seedrandom(String(seed), { global: true });
                 matchingState.gameStart();
             });
-            this.socket.on('host', () => matchingState.isOurHost(true));
+            this.socket.on('host', () => this.host = true);
             this.socket.on('action', (a: Action) => gamingState.enemyMove(a));
             this.socket.on('mypos', (x: number, y: number) => gamingState.enemyPosSet(x, y));
             this.socket.on('reset', () => { console.log("reset"); gamingState.reserveReset() });
