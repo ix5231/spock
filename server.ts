@@ -107,9 +107,10 @@ class Server {
 
                     const next_player = this.sessions.try_join_waiter();
                     if (next_player) {
-                        socket.join('current_player');
+                        console.log('TRACE: New commer', next_player);
+                        //socket.join('current_player');
                         this.io.to(this.sessions.players[0]).emit('host');
-                        this.io.to(next_player).emit('playing');
+                        this.io.to(next_player).emit('try_join');
                     }
                 }
             });
