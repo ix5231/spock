@@ -5,17 +5,42 @@ import * as socketIo from "socket.io";
 
 const max_player: number = 2;
 
+class Session {
+    private io: SocketIO.Server;
+
+    constructor(server: Http.Server) {
+        this.io = socketIo(server);
+    }
+
+    socketOpen() {
+        this.io.on('connection', (socket) => {
+            socket.on('matching', () => {
+                let playerNum = 0;
+                this.io.sockets.in('room').clients((error, clients) => {
+                    playerNum = clients.length;
+                })
+                console.log(playerNum);
+                if (true) {
+                    socket.join('room');
+                } else {
+                    socket.emit('denied');
+                }
+            });
+        })
+    }
+}
+
 class Server {
     private app: express.Express;
     private port: number;
     private server: Http.Server;
-    private io: SocketIO.Server;
+    private session: Session;
 
     constructor(port?: number) {
         this.app = express();
         this.port = parseInt(process.env.PORT || "3000");
         this.server = Http.createServer(this.app);
-        this.io = socketIo(this.server);
+        this.session = new Session(this.server);
     }
 
     route() {
@@ -32,21 +57,7 @@ class Server {
     }
 
     socketOpen() {
-        this.io.on('connection', (socket) => {
-            /*
-            socket.on('matching', () => {
-                if (this.sessions.try_join(socket.id)) { // 試合可能状態
-                    socket.join('current_player');
-                    if (this.sessions.ready()) {
-                        const seed: number = Math.random();
-                        this.io.to('current_player').emit('playing', seed);
-                    } else {
-                        this.io.to(socket.id).emit('host');
-                    }
-                }
-            });
-            */
-        })
+        this.session.socketOpen();
     }
 }
 

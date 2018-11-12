@@ -44,15 +44,30 @@ namespace spock {
 
     // マッチング中
     class Matching extends Phaser.State {
+        c: number;
+         
         create(): void {
+            this.c = 0;
             client.emitMatching();
         }
 
         render(): void {
-            if (client.isHost) {
-                this.game.debug.text('Hosting...', 1, 16);
-            } else {
-                this.game.debug.text('Matching...', 1, 16);
+            switch(client.status) {
+                case MatchingStatus.Host:
+                    this.game.debug.text('Hosting...', 1, 16);
+                    break;
+                case MatchingStatus.Client:
+                    this.game.debug.text('Loading...', 1, 16);
+                    break;
+                case MatchingStatus.Denied:
+                    this.game.debug.text('Denied...', 1, 16);
+                    if(this.c == 1000) {
+                        client.emitMatching();
+                        this.c = 0;
+                    } else {
+                        this.c++;
+                    }
+                    break;
             }
         }
 
@@ -387,8 +402,15 @@ namespace spock {
         }
     }
 
+    enum MatchingStatus {
+        Host,
+        Client,
+        Denied
+    }
+
     interface Client {
-        isHost: boolean;
+        status: MatchingStatus;
+        isHost: Boolean;
         emitMatching(): void;
         emitAction(action: Action): void;
         emitPos(x: number, y: number): void;
@@ -396,11 +418,11 @@ namespace spock {
 
     class ClientImpl implements Client {
         private socket: io.Socket;
-        private host: boolean;
+        private _status: MatchingStatus;
 
         constructor() {
             this.socket = io.connect();
-            this.host = false;
+            this._status = MatchingStatus.Denied;
             this.registerHandlers();
         }
 
@@ -416,8 +438,12 @@ namespace spock {
             this.socket.emit('mypos', x, y);
         }
 
+        get status(): MatchingStatus {
+            return this._status;
+        }
+
         get isHost(): boolean {
-            return this.host;
+            return this._status == MatchingStatus.Host;
         }
 
         private registerHandlers(): void {
@@ -425,7 +451,7 @@ namespace spock {
                 seedrandom(String(seed), { global: true });
                 matchingState.gameStart();
             });
-            this.socket.on('host', () => this.host = true);
+            this.socket.on('host', () => this._status = MatchingStatus.Denied);
             this.socket.on('action', (a: Action) => gamingState.enemyMove(a));
             this.socket.on('mypos', (x: number, y: number) => gamingState.enemyPosSet(x, y));
             this.socket.on('reset', () => { console.log("reset"); gamingState.reserveReset() });
@@ -435,11 +461,11 @@ namespace spock {
 
     class ClientImpl2 implements Client {
         private socket: io.Socket;
-        private host: boolean;
+        private _status: MatchingStatus;
 
         constructor() {
             this.socket = io.connect();
-            this.host = false;
+            this._status = MatchingStatus.Client;
             this.registerHandlers();
         }
 
@@ -455,8 +481,12 @@ namespace spock {
             this.socket.emit('mypos', x, y);
         }
 
+        get status(): MatchingStatus {
+            return this._status;
+        }
+
         get isHost(): boolean {
-            return this.host;
+            return this._status == MatchingStatus.Host;
         }
 
         private registerHandlers(): void {
@@ -464,18 +494,19 @@ namespace spock {
                 seedrandom(String(seed), { global: true });
                 matchingState.gameStart();
             });
-            this.socket.on('host', () => this.host = true);
+            this.socket.on('host', () => this._status = MatchingStatus.Host);
             this.socket.on('action', (a: Action) => gamingState.enemyMove(a));
             this.socket.on('mypos', (x: number, y: number) => gamingState.enemyPosSet(x, y));
             this.socket.on('reset', () => { console.log("reset"); gamingState.reserveReset() });
             this.socket.on('try_join', () => { this.emitMatching(); });
+            this.socket.on('denied', () => { this.emitMatching(); });
         }
     }
 
     const game: Phaser.Game = new Phaser.Game(screen_width, screen_height, Phaser.AUTO, '');
     const matchingState: Matching = new Matching();
     const gamingState: Gaming = new Gaming();
-    const client: Client = new ClientImpl();
+    const client: Client = new ClientImpl2();
 
     game.state.add('boot', new Boot());
     game.state.add('load', new Load());
@@ -483,4 +514,5 @@ namespace spock {
     game.state.add('gaming', gamingState);
 
     game.state.start('boot');
+
 }
