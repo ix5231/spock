@@ -5,7 +5,7 @@ import * as seedrandom from 'seedrandom';
 
 namespace spock {
     const screen_width: number = 800;
-    const screen_height: number = 600;
+    const screen_height: number = 20*16*2;
 
     const game_time: number = Phaser.Timer.MINUTE * 1 + Phaser.Timer.SECOND * 30;
 
@@ -36,6 +36,8 @@ namespace spock {
             game.load.spritesheet('dude', 'assets/dude.png', 32, 48);
             game.load.spritesheet('baddie', 'assets/baddie.png', 32, 32);
             game.load.image('diamond', 'assets/diamond.png');
+            game.load.image('mario', 'assets/tiled/mario.png');
+	    game.load.tilemap('map1','assets/tiled/untitled.json', null, Phaser.Tilemap.TILED_JSON);
         }
 
         public create() {
@@ -106,9 +108,32 @@ namespace spock {
         private playing: boolean;
 
         public create() {
-            game.add.sprite(0, 0, 'sky');
+	    game.map = this.game.add.tilemap('map1');
 
-            this.setupField();
+	    //the first parameter is the tileset name as specified in Tiled, the second is the key to the asset
+	    game.map.addTilesetImage('mario', 'mario');
+
+	    //create layer
+	    this.collision = game.map.createLayer('collision');
+	    this.collision.setScale(2);
+	    this.sky = game.map.createLayer('sky');
+	    this.sky.setScale(2);
+	    this.bkgnd3 = game.map.createLayer('bkgnd3');
+	    this.bkgnd3.setScale(2);
+	    this.bkgndt = game.map.createLayer('bkgndt');
+	    this.bkgndt.setScale(2);
+	    this.obj = game.map.createLayer('obj');
+	    this.obj.setScale(2);
+
+	    //collision on blockedLayer
+	    game.map.setCollisionBetween(1, 10000, true, 'collision');//the camera will follow the player in the world
+	    this.game.camera.follow(this.player1);
+	    
+
+	    //resizes the game world to match the layer dimensions
+//	    this.backgroundlayer.resizeWorld();
+
+            // this.setupField();
             this.setupPlayers();
             this.setupStars();
             this.setupUi();
@@ -146,9 +171,9 @@ namespace spock {
         public update() {
             if (this.playing) {
                 // あたり判定
-                this.hitPlatform = game.physics.arcade.collide(this.player1, this.platforms);
-                game.physics.arcade.collide(this.player2, this.platforms);
-                game.physics.arcade.collide(this.stars, this.platforms);
+                this.hitPlatform = game.physics.arcade.collide(this.player1, this.collision);
+                game.physics.arcade.collide(this.player2, this.collision);
+                game.physics.arcade.collide(this.stars, this.collision);
 
                 game.physics.arcade.overlap(this.player1, this.stars, (_, star) => {
                     star.kill();
@@ -188,8 +213,9 @@ namespace spock {
             } else {
                 action.push(Action.Stop);
             }
-            if (this.cursors.up.isDown && this.player1.body.touching.down &&
-                this.hitPlatform) {
+            if (this.cursors.up.justDown
+                //this.hitPlatform
+	       ) {
                 action.push(Action.Jump);
             }
             if (this.attackKey.justDown) {
@@ -289,8 +315,8 @@ namespace spock {
             this.diamonds2 = game.add.group();
             this.diamonds2.enableBody = true;
 
-            for (let i = 0; i < 12; i++) {
-                this.create_star(i * 70, 0);
+            for (let i = 0; i < 800/10-5; i++) {
+                this.create_star(i*10, 0);
             }
         }
 
