@@ -51,9 +51,6 @@ namespace spock {
         create(): void {
             this.c = 0;
             client.emitMatching();
-            /*this.distime = new Timer(wait_time, () => {
-                client.emitMatching();
-            });*/
         }
 
         render(): void {
@@ -66,6 +63,7 @@ namespace spock {
                     break;
                 case MatchingStatus.Denied:
                     this.game.debug.text('Denied...', 1, 16);
+                    // FIXME: Use proper timer
                     if (this.c < 200) {
                         console.log(this.c)
                         this.c++;
@@ -475,7 +473,7 @@ namespace spock {
 
         constructor() {
             this.socket = io.connect();
-            this._status = MatchingStatus.Client;
+            this._status = MatchingStatus.Host;
             this.registerHandlers();
         }
 
@@ -504,14 +502,11 @@ namespace spock {
                 seedrandom(String(seed), { global: true });
                 matchingState.gameStart();
             });
-            this.socket.on('host', () => this._status = MatchingStatus.Host);
+            this.socket.on('client', () => this._status = MatchingStatus.Client);
             this.socket.on('action', (a: Action) => gamingState.enemyMove(a));
             this.socket.on('mypos', (x: number, y: number) => gamingState.enemyPosSet(x, y));
             this.socket.on('reset', () => { console.log("reset"); gamingState.reserveReset() });
-            this.socket.on('try_join', () => { this.emitMatching(); });
-            this.socket.on('denied', () => {
-                this._status = MatchingStatus.Denied;
-            });
+            this.socket.on('denied', () => this._status = MatchingStatus.Denied);
         }
     }
 

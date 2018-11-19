@@ -16,15 +16,31 @@ class Session {
         this.io.on('connection', (socket) => {
             socket.on('matching', () => {
                 this.io.sockets.in('room').clients((error, clients) => {
-                    console.log(clients.length);
-                    if (clients.length < 2) {
-                        socket.join('room');
-                    } else {
-                        socket.emit('denied');
-                    }
+                    console.log('DEBUG: room num ' + clients.length);
+                    this.handleMatching(clients, socket);
                 });
             });
+            socket.on('action', (a) => socket.broadcast.to('room').emit('action', a));
+            socket.on('mypos', (x, y) => socket.broadcast.to('room').emit('mypos', x, y));
         })
+    }
+
+    private handleMatching(clients: Array<string>, socket: SocketIO.Socket) {
+        if (clients.length < 2) {
+            socket.join('room');
+        } else {
+            socket.emit('denied');
+        }
+        if (clients.length == 1) {
+            socket.emit('client');
+            this.startPlay();
+            console.log('DEBUG: START');
+        }
+    }
+
+    private startPlay() {
+        const seed: number = Math.random();
+        this.io.in('room').emit('playing', seed);
     }
 }
 
