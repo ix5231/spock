@@ -15,16 +15,14 @@ class Session {
     socketOpen() {
         this.io.on('connection', (socket) => {
             socket.on('matching', () => {
-                let playerNum = 0;
                 this.io.sockets.in('room').clients((error, clients) => {
-                    playerNum = clients.length;
-                })
-                console.log(playerNum);
-                if (true) {
-                    socket.join('room');
-                } else {
-                    socket.emit('denied');
-                }
+                    console.log(clients.length);
+                    if (clients.length < 2) {
+                        socket.join('room');
+                    } else {
+                        socket.emit('denied');
+                    }
+                });
             });
         })
     }

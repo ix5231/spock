@@ -7,6 +7,7 @@ namespace spock {
     const screen_width: number = 800;
     const screen_height: number = 600;
 
+    const wait_time: number = Phaser.Timer.SECOND * 5;
     const game_time: number = Phaser.Timer.MINUTE * 1 + Phaser.Timer.SECOND * 30;
 
     enum Action {
@@ -44,11 +45,15 @@ namespace spock {
 
     // マッチング中
     class Matching extends Phaser.State {
-        c: number;
+        private c: number;
+        private distime;
          
         create(): void {
             this.c = 0;
             client.emitMatching();
+            /*this.distime = new Timer(wait_time, () => {
+                client.emitMatching();
+            });*/
         }
 
         render(): void {
@@ -61,11 +66,12 @@ namespace spock {
                     break;
                 case MatchingStatus.Denied:
                     this.game.debug.text('Denied...', 1, 16);
-                    if(this.c == 1000) {
+                    if (this.c < 200) {
+                        console.log(this.c)
+                        this.c++;
+                    } else {
                         client.emitMatching();
                         this.c = 0;
-                    } else {
-                        this.c++;
                     }
                     break;
             }
@@ -395,6 +401,10 @@ namespace spock {
             return this.formatTime(Math.round((this.timerEvent.delay - this.timer.ms) / 1000));
         }
 
+        get expired(): boolean {
+            return this.timer.expired;
+        }
+
         private formatTime(s: number): string {
             const minutes = Math.floor(s / 60);
             const seconds = (s - minutes * 60);
@@ -499,7 +509,9 @@ namespace spock {
             this.socket.on('mypos', (x: number, y: number) => gamingState.enemyPosSet(x, y));
             this.socket.on('reset', () => { console.log("reset"); gamingState.reserveReset() });
             this.socket.on('try_join', () => { this.emitMatching(); });
-            this.socket.on('denied', () => { this.emitMatching(); });
+            this.socket.on('denied', () => {
+                this._status = MatchingStatus.Denied;
+            });
         }
     }
 
