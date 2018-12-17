@@ -30,14 +30,14 @@ namespace spock {
     // アセット読み込み
     class Load extends Phaser.State {
         public preload() {
-            game.load.image('sky', 'assets/sky.png');
+            game.load.image('map', 'assets/tiled/map.png');
             game.load.image('ground', 'assets/platform.png');
             game.load.image('star', 'assets/star.png');
             game.load.spritesheet('dude', 'assets/dude.png', 32, 48);
             game.load.spritesheet('baddie', 'assets/baddie.png', 32, 32);
             game.load.image('diamond', 'assets/diamond.png');
-            game.load.image('mario', 'assets/tiled/mario.png');
-	    game.load.tilemap('map1','assets/tiled/untitled.json', null, Phaser.Tilemap.TILED_JSON);
+            game.load.image('mario', 'assets/tiled/mariox2.png');
+	    game.load.tilemap('map1','assets/tiled/map2.json', null, Phaser.Tilemap.TILED_JSON);
         }
 
         public create() {
@@ -111,22 +111,26 @@ namespace spock {
 	    game.map = this.game.add.tilemap('map1');
 
 	    //the first parameter is the tileset name as specified in Tiled, the second is the key to the asset
-	    game.map.addTilesetImage('mario', 'mario');
+	    game.map.addTilesetImage('mariox2', 'mario');
 
 	    //create layer
 	    this.collision = game.map.createLayer('collision');
-	    this.collision.setScale(2);
-	    this.sky = game.map.createLayer('sky');
-	    this.sky.setScale(2);
-	    this.bkgnd3 = game.map.createLayer('bkgnd3');
-	    this.bkgnd3.setScale(2);
-	    this.bkgndt = game.map.createLayer('bkgndt');
-	    this.bkgndt.setScale(2);
+//	    this.collision.setScale(2);
+//	    this.items = game.map.createLayer('items');
+//	    this.items.setScale(2);
+//	    this.sky = game.map.createLayer('sky');
+//	    this.sky.setScale(2);
+//	    this.bkgnd3 = game.map.createLayer('bkgnd3');
+//	    this.bkgnd3.setScale(2);
+//	    this.bkgndt = game.map.createLayer('bkgndt');
+//	    this.bkgndt.setScale(2);
 	    this.obj = game.map.createLayer('obj');
-	    this.obj.setScale(2);
+//	    this.obj.setScale(2);
 
+	    game.add.sprite(0, 0, 'map');
 	    //collision on blockedLayer
 	    game.map.setCollisionBetween(1, 10000, true, 'collision');//the camera will follow the player in the world
+//	    game.map.setCollisionBetween(1, 10000, true, 'items');//the camera will follow the player in the world
 	    this.game.camera.follow(this.player1);
 	    
 
@@ -140,7 +144,7 @@ namespace spock {
             this.setupInput();
             this.playing = true;
             this.gameTimer = new Timer(game_time, () => {
-                this.playing = false;
+//                this.playing = false;
             });
 
             this.gameTimer.start();
@@ -176,14 +180,18 @@ namespace spock {
                 game.physics.arcade.collide(this.stars, this.collision);
 
                 game.physics.arcade.overlap(this.player1, this.stars, (_, star) => {
-                    star.kill();
-                    this.create_star(screen_width * Math.random(), 0);
+                    star.y = 0;
+		    star.x = screen_width * Math.random();
+		    star.body.velocity.x = Math.random()*200-100;
+		    star.body.velocity.y = 0;
+//                    this.create_star(screen_width * Math.random(), 0);
 
                     this.scorePlayer1 += 10;
                 }, undefined, this);
                 game.physics.arcade.overlap(this.player2, this.stars, (_, star) => {
                     star.kill();
                     this.create_star(screen_width * Math.random(), 0);
+		    
 
                     this.scorePlayer2 += 10;
                 }, undefined, this);
@@ -191,6 +199,16 @@ namespace spock {
                     diamond.kill();
 
                     this.scorePlayer1 -= 5;
+                }, undefined, this);
+                game.physics.arcade.overlap(this.player1, this.diamonds1, (_, diamond) => {
+                    diamond.kill();
+
+                    this.scorePlayer1 -= 5;
+                }, undefined, this);
+                game.physics.arcade.overlap(this.player1, this.items, (_, item) => {
+		    console.log("got it");
+		    //remove sprite
+		    item.destroy();
                 }, undefined, this);
                 game.physics.arcade.overlap(this.player2, this.diamonds1, (_, diamond) => {
                     diamond.kill();
@@ -233,11 +251,11 @@ namespace spock {
         private handleMove(player: Phaser.Sprite, action: Action, isMe: boolean) {
             switch (action) {
                 case Action.MoveLeft:
-                    player.body.velocity.x = -150;
+                    player.body.velocity.x += (-150-player.body.velocity.x)*0.05;
                     player.animations.play('left');
                     break;
                 case Action.MoveRight:
-                    player.body.velocity.x = 150;
+                    player.body.velocity.x += (150-player.body.velocity.x)*0.05;
                     player.animations.play('right');
                     break;
                 case Action.Jump:
@@ -245,11 +263,17 @@ namespace spock {
                     break;
                 case Action.Attack:
                     const diamond = (isMe ? this.diamonds1 : this.diamonds2)
-                        .create(player.x, player.y, 'diamond');
+                        .create(player.x+(player.body.velocity.x > 0 ? 1 : -1) * 40, player.y, 'diamond');
                     diamond.body.velocity.x = (player.body.velocity.x > 0 ? 1 : -1) * 300;
+		    diamond.body.velocity.y = 0;
+//		    diamond.body.collideWorldBounds = true;
+		    diamond.body.bounce.y = 0.95;
+		    diamond.body.bounce.x = 1;
+		    diamond.body.gravity.y = 0;
+
                     break;
                 case Action.Stop:
-                    player.body.velocity.x = 0;
+                    player.body.velocity.x /= 1.3;
                     player.animations.stop();
                     player.frame = 4;
                     break;
@@ -301,8 +325,13 @@ namespace spock {
         // 星追加
         private create_star(x: number, y: number) {
             const star = this.stars.create(x, y, 'star');
-            star.body.gravity.y = 300;
-            star.body.bounce.y = 0.7 + Math.random() * 0.2;
+            star.body.gravity.y = 100;
+            star.body.velocity.x = Math.random()*400-200;
+            star.body.velocity.y = 0;
+            star.body.bounce.y = 1;
+            star.body.bounce.x = 1;
+	    star.body.collideWorldBounds = true
+
         }
 
         // 初期星追加
@@ -315,8 +344,8 @@ namespace spock {
             this.diamonds2 = game.add.group();
             this.diamonds2.enableBody = true;
 
-            for (let i = 0; i < 800/10-5; i++) {
-                this.create_star(i*10, 0);
+            for (let i = 0; i < 800/30-5; i++) {
+                this.create_star(i*30, 0);
             }
         }
 
