@@ -5,50 +5,56 @@ import * as socketIo from "socket.io";
 
 const max_player: number = 2;
 
-class SessionManager {
-    public players: Array<string>;
-    private waiting_players: Array<string>;
+class Session {
+    private io: SocketIO.Server;
+    private nextNum: number;
 
-    constructor() {
-        this.players = new Array();
-        this.waiting_players = new Array();
+    constructor(server: Http.Server) {
+        this.io = socketIo(server);
+        this.nextNum = 0;
     }
 
-    // 入室を試みる
-    // 成功でtrue, 失敗でfalseを返す
-    try_join(player: string): boolean {
-        console.log('TRACE: Try join');
-        if (this.ready()) { // もういっぱい
-            this.waiting_players.push(player); // 待ってもらう
-            return false;
+    socketOpen() {
+        this.io.on('connection', (socket) => {
+            socket['roomNum'] = this.nextNum;
+            const pname: string = this.roomName(socket['roomNum']);
+            socket.on('matching', () => {
+                this.io.sockets.in(pname).clients((error, clients) => {
+                    // this.io.sockets.in('room').clients((error, clients) => {
+                    console.log('DEBUG: ' + pname + ' num ' + clients.length);
+                    this.handleMatching(clients, socket);
+                });
+            });
+            socket.on('action', (a) => socket.broadcast.to(pname).emit('action', a));
+            socket.on('mypos', (x, y) => socket.broadcast.to(pname).emit('mypos', x, y));
+        })
+    }
+
+    private handleMatching(clients: Array<string>, socket: SocketIO.Socket) {
+        const pname: string = this.roomName(this.nextNum);
+        if (clients.length < 2) {
+            socket.join(pname);
         } else {
-            this.players.push(player);
-            return true;
+            socket.emit('denied');
         }
-    }
-
-    leave(player: string): string | undefined {
-        //if (this.players.remove(player, (a, b) => a === b)) {
-        if (this.players.splice(this.players.indexOf(player), 1)) {
-            console.log('TRACE: removed player from battle')
-            return player;
-        } else if (this.waiting_players.splice(this.players.indexOf(player), 1)) {
-            console.log('TRACE: removed player from wait queue')
-            return undefined;
+        if (clients.length == 1) {
+            socket.emit('client');
+            this.startPlay();
+            console.log('DEBUG: START');
         } else {
-            throw new Error("ERROR: No such player")
+            socket.emit(pname);
+            console.log('DEBUG: HOST JOIN');
         }
     }
 
-    ready(): boolean { return this.players.length === 2; }
+    private startPlay() {
+        const seed: number = Math.random();
+        this.io.in(this.roomName(this.nextNum)).emit('playing', seed);
+        this.nextNum++;
+    }
 
-    try_join_waiter(): string | undefined {
-        const next = this.waiting_players.splice(0, 1);
-        if (next != []) { // 待ち人がいた場合
-            this.players.push(next[0]);
-            return next[0];
-        }
-        return undefined;
+    private roomName(n: number): string {
+        return 'room' + n;
     }
 }
 
@@ -56,17 +62,13 @@ class Server {
     private app: express.Express;
     private port: number;
     private server: Http.Server;
-    private io: SocketIO.Server;
-
-    private sessions: SessionManager;
+    private session: Session;
 
     constructor(port?: number) {
         this.app = express();
         this.port = parseInt(process.env.PORT || "3000");
         this.server = Http.createServer(this.app);
-        this.io = socketIo(this.server);
-
-        this.sessions = new SessionManager();
+        this.session = new Session(this.server);
     }
 
     route() {
@@ -83,38 +85,7 @@ class Server {
     }
 
     socketOpen() {
-        this.io.on('connection', (socket) => {
-            socket.on('matching', () => {
-                if (this.sessions.try_join(socket.id)) { // 試合可能状態
-                    socket.join('current_player');
-                    if (this.sessions.ready()) {
-                        const seed: number = Math.random();
-                        this.io.to('current_player').emit('playing', seed);
-                    } else {
-                        this.io.to(socket.id).emit('host');
-                    }
-                }
-            });
-
-            socket.on('action', (a) => socket.broadcast.to('current_player').emit('action', a));
-            socket.on('mypos', (x, y) => socket.broadcast.to('current_player').emit('mypos', x, y));
-
-            socket.on('disconnect', () => {
-                if (this.sessions.leave(socket.id)) { // 試合中のメンバーが退出
-                    console.log('TRACE: Member left')
-                    this.io.to(this.sessions.players[0]).emit('reset');
-                    console.log('TRACE: Send reset to: ', this.sessions.players[0])
-
-                    const next_player = this.sessions.try_join_waiter();
-                    if (next_player) {
-                        console.log('TRACE: New commer', next_player);
-                        //socket.join('current_player');
-                        this.io.to(this.sessions.players[0]).emit('host');
-                        this.io.to(next_player).emit('try_join');
-                    }
-                }
-            });
-        })
+        this.session.socketOpen();
     }
 }
 

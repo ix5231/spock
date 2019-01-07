@@ -429,49 +429,6 @@ namespace spock {
 
         constructor() {
             this.socket = io.connect();
-            this._status = MatchingStatus.None;
-            this.registerHandlers();
-        }
-
-        emitMatching(): void {
-            this.socket.emit('matching');
-        }
-
-        emitAction(action: Action): void {
-            this.socket.emit('action', action);
-        }
-
-        emitPos(x: number, y: number): void {
-            this.socket.emit('mypos', x, y);
-        }
-
-        get status(): MatchingStatus {
-            return this._status;
-        }
-
-        get isHost(): boolean {
-            return this._status == MatchingStatus.Host;
-        }
-
-        private registerHandlers(): void {
-            this.socket.on('playing', (seed: number) => {
-                seedrandom(String(seed), { global: true });
-                matchingState.gameStart();
-            });
-            this.socket.on('host', () => this._status = MatchingStatus.Denied);
-            this.socket.on('action', (a: Action) => gamingState.enemyMove(a));
-            this.socket.on('mypos', (x: number, y: number) => gamingState.enemyPosSet(x, y));
-            this.socket.on('reset', () => { console.log("reset"); gamingState.reserveReset() });
-            this.socket.on('try_join', () => { this.emitMatching(); });
-        }
-    }
-
-    class ClientImpl2 implements Client {
-        private socket: io.Socket;
-        private _status: MatchingStatus;
-
-        constructor() {
-            this.socket = io.connect();
             this._status = MatchingStatus.Host;
             this.registerHandlers();
         }
@@ -513,7 +470,7 @@ namespace spock {
     const game: Phaser.Game = new Phaser.Game(screen_width, screen_height, Phaser.AUTO, '');
     const matchingState: Matching = new Matching();
     const gamingState: Gaming = new Gaming();
-    const client: Client = new ClientImpl2();
+    const client: Client = new ClientImpl();
 
     game.state.add('boot', new Boot());
     game.state.add('load', new Load());
