@@ -4,9 +4,7 @@ import * as io from 'socket.io-client';
 import * as seedrandom from 'seedrandom';
 
 namespace spock {
-    const screen_width: number = 800;
-    const screen_height: number = 600;
-
+    const screen_width: number = 800; const screen_height: number = 600; 
     const wait_time: number = Phaser.Timer.SECOND * 5;
     const game_time: number = Phaser.Timer.MINUTE * 1 + Phaser.Timer.SECOND * 30;
 
@@ -413,7 +411,8 @@ namespace spock {
     enum MatchingStatus {
         Host,
         Client,
-        Denied
+        Denied,
+        None,
     }
 
     interface Client {
@@ -430,7 +429,7 @@ namespace spock {
 
         constructor() {
             this.socket = io.connect();
-            this._status = MatchingStatus.Denied;
+            this._status = MatchingStatus.None;
             this.registerHandlers();
         }
 
@@ -503,6 +502,7 @@ namespace spock {
                 matchingState.gameStart();
             });
             this.socket.on('client', () => this._status = MatchingStatus.Client);
+            this.socket.on('host', () => this._status = MatchingStatus.Host);
             this.socket.on('action', (a: Action) => gamingState.enemyMove(a));
             this.socket.on('mypos', (x: number, y: number) => gamingState.enemyPosSet(x, y));
             this.socket.on('reset', () => { console.log("reset"); gamingState.reserveReset() });

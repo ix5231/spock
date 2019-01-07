@@ -7,27 +7,33 @@ const max_player: number = 2;
 
 class Session {
     private io: SocketIO.Server;
+    private nextNum: number;
 
     constructor(server: Http.Server) {
         this.io = socketIo(server);
+        this.nextNum = 0;
     }
 
     socketOpen() {
         this.io.on('connection', (socket) => {
+            socket['roomNum'] = this.nextNum;
+            const pname: string = this.roomName(socket['roomNum']);
             socket.on('matching', () => {
-                this.io.sockets.in('room').clients((error, clients) => {
-                    console.log('DEBUG: room num ' + clients.length);
+                this.io.sockets.in(pname).clients((error, clients) => {
+                    // this.io.sockets.in('room').clients((error, clients) => {
+                    console.log('DEBUG: ' + pname + ' num ' + clients.length);
                     this.handleMatching(clients, socket);
                 });
             });
-            socket.on('action', (a) => socket.broadcast.to('room').emit('action', a));
-            socket.on('mypos', (x, y) => socket.broadcast.to('room').emit('mypos', x, y));
+            socket.on('action', (a) => socket.broadcast.to(pname).emit('action', a));
+            socket.on('mypos', (x, y) => socket.broadcast.to(pname).emit('mypos', x, y));
         })
     }
 
     private handleMatching(clients: Array<string>, socket: SocketIO.Socket) {
+        const pname: string = this.roomName(this.nextNum);
         if (clients.length < 2) {
-            socket.join('room');
+            socket.join(pname);
         } else {
             socket.emit('denied');
         }
@@ -35,12 +41,20 @@ class Session {
             socket.emit('client');
             this.startPlay();
             console.log('DEBUG: START');
+        } else {
+            socket.emit(pname);
+            console.log('DEBUG: HOST JOIN');
         }
     }
 
     private startPlay() {
         const seed: number = Math.random();
-        this.io.in('room').emit('playing', seed);
+        this.io.in(this.roomName(this.nextNum)).emit('playing', seed);
+        this.nextNum++;
+    }
+
+    private roomName(n: number): string {
+        return 'room' + n;
     }
 }
 
